@@ -1,0 +1,101 @@
+Command: ninja flash
+[1/14] Generating ../../partition_table/partition-table.bin
+Partition table binary generated. Contents:
+*******************************************************************************
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,1M,
+*******************************************************************************
+[2/14] Generating x509_crt_bundle
+[3/14] Generating ../../x509_crt_bundle.S
+[4/14] Building ASM object esp-idf/mbedtls/CMakeFiles/__idf_mbedtls.dir/__/__/x509_crt_bundle.S.obj
+[5/14] Linking C static library esp-idf/mbedtls/libmbedtls.a
+[6/14] Performing configure step for 'bootloader'
+-- Minimal build - OFF
+-- Building ESP-IDF components for target esp32
+-- Project sdkconfig file /home/markodev/esp32cam_dsp_benchmark/sdkconfig
+-- Compiler supported targets: xtensa-esp-elf
+-- Adding linker script /home/markodev/esp/esp-idf/components/soc/esp32/ld/esp32.peripherals.ld
+-- Bootloader project name: "bootloader" version: 1
+-- Adding linker script /home/markodev/esp/esp-idf/components/esp_rom/esp32/ld/esp32.rom.ld
+-- Adding linker script /home/markodev/esp/esp-idf/components/esp_rom/esp32/ld/esp32.rom.api.ld
+-- Adding linker script /home/markodev/esp/esp-idf/components/esp_rom/esp32/ld/esp32.rom.libgcc.ld
+-- Adding linker script /home/markodev/esp/esp-idf/components/esp_rom/esp32/ld/esp32.rom.libc-funcs.ld
+-- Adding linker script /home/markodev/esp/esp-idf/components/bootloader/subproject/main/ld/esp32/bootloader.ld
+-- Adding linker script /home/markodev/esp/esp-idf/components/bootloader/subproject/main/ld/esp32/bootloader.rom.ld
+-- Components: bootloader bootloader_support efuse esp_app_format esp_bootloader_format esp_common esp_hw_support esp_rom esp_security esp_system esptool_py freertos hal log main micro-ecc newlib partition_table soc spi_flash xtensa
+-- Component paths: /home/markodev/esp/esp-idf/components/bootloader /home/markodev/esp/esp-idf/components/bootloader_support /home/markodev/esp/esp-idf/components/efuse /home/markodev/esp/esp-idf/components/esp_app_format /home/markodev/esp/esp-idf/components/esp_bootloader_format /home/markodev/esp/esp-idf/components/esp_common /home/markodev/esp/esp-idf/components/esp_hw_support /home/markodev/esp/esp-idf/components/esp_rom /home/markodev/esp/esp-idf/components/esp_security /home/markodev/esp/esp-idf/components/esp_system /home/markodev/esp/esp-idf/components/esptool_py /home/markodev/esp/esp-idf/components/freertos /home/markodev/esp/esp-idf/components/hal /home/markodev/esp/esp-idf/components/log /home/markodev/esp/esp-idf/components/bootloader/subproject/main /home/markodev/esp/esp-idf/components/bootloader/subproject/components/micro-ecc /home/markodev/esp/esp-idf/components/newlib /home/markodev/esp/esp-idf/components/partition_table /home/markodev/esp/esp-idf/components/soc /home/markodev/esp/esp-idf/components/spi_flash /home/markodev/esp/esp-idf/components/xtensa
+-- Configuring done (1.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/markodev/esp32cam_dsp_benchmark/build/bootloader
+[7/14] Performing build step for 'bootloader'
+[1/2] Generating binary image from built executable
+esptool.py v4.12.dev1
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated /home/markodev/esp32cam_dsp_benchmark/build/bootloader/bootloader.bin
+[2/2] cd /home/markodev/esp32cam_dsp_benchmark/build/bootloader/esp-idf/esptool_py && /home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/markodev/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 /home/markodev/esp32cam_dsp_benchmark/build/bootloader/bootloader.bin
+Bootloader binary size 0x6680 bytes. 0x980 bytes (8%) free.
+[8/14] No install step for 'bootloader'
+[9/14] Completed 'bootloader'
+[10/14] Generating esp-idf/esp_system/ld/sections.ld
+[11/14] Linking CXX executable ..elf
+[12/14] Generating binary image from built executable
+esptool.py v4.12.dev1
+Creating esp32 image...
+Merged 2 ELF sections
+Successfully created esp32 image.
+Generated /home/markodev/esp32cam_dsp_benchmark/build/..bin
+[13/14] cd /home/markodev/esp32cam_dsp_benchmark/build/esp-idf/esptool_py && /home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/markodev/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/markodev/esp32cam_dsp_benchmark/build/partition_table/partition-table.bin /home/markodev/esp32cam_dsp_benchmark/build/..bin
+..bin binary size 0x6abe0 bytes. Smallest app partition is 0x100000 bytes. 0x95420 bytes (58%) free.
+[13/14] cd /home/markodev/esp/esp-idf/components/esptool_py && /usr/bin/cmake -D IDF_PATH=/home/markodev/esp/esp-idf -D "SERIAL_TOOL=/home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python;;/home/markodev/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/home/markodev/esp32cam_dsp_benchmark/build -P /home/markodev/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool.py --chip esp32 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x1000 bootloader/bootloader.bin 0x10000 ..bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.12.dev1
+Serial port /dev/ttyUSB0
+Connecting....
+Chip is ESP32-D0WDQ6-V3 (revision v3.0)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: 94:b9:7e:ce:2c:78
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00001000 to 0x00007fff...
+Flash will be erased from 0x00010000 to 0x0007afff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 26240 bytes to 16487...
+Writing at 0x00001000... (50 %)
+Writing at 0x000075fb... (100 %)
+Wrote 26240 bytes (16487 compressed) at 0x00001000 in 0.9 seconds (effective 233.5 kbit/s)...
+Hash of data verified.
+Compressed 437216 bytes to 228077...
+Writing at 0x00010000... (7 %)
+Writing at 0x0001fc1a... (14 %)
+Writing at 0x00029cec... (21 %)
+Writing at 0x0003098d... (28 %)
+Writing at 0x000365da... (35 %)
+Writing at 0x0003d33e... (42 %)
+Writing at 0x00042f63... (50 %)
+Writing at 0x0004b917... (57 %)
+Writing at 0x00051c02... (64 %)
+Writing at 0x00057c67... (71 %)
+Writing at 0x00061cdd... (78 %)
+Writing at 0x00068d4e... (85 %)
+Writing at 0x0006ef8a... (92 %)
+Writing at 0x00074bf2... (100 %)
+Wrote 437216 bytes (228077 compressed) at 0x00010000 in 5.9 seconds (effective 597.1 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 103...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 339.0 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...

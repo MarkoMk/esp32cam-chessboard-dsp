@@ -1,0 +1,231 @@
+Command: /home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/markodev/esp/esp-idf/tools/idf_monitor.py -p /dev/ttyUSB0 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /home/markodev/esp32cam_dsp_benchmark/build/..elf /home/markodev/esp32cam_dsp_benchmark/build/bootloader/bootloader.elf -m '/home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python' '/home/markodev/esp/esp-idf/tools/idf.py' '-p' '/dev/ttyUSB0'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Oct  8 2026 12:06:42[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=18150h ( 98640) map[0m
+[0;32mI (122) esp_image: segment 1: paddr=00028178 vaddr=3ffb0000 size=050dch ( 20700) load[0m
+[0;32mI (130) esp_image: segment 2: paddr=0002d25c vaddr=40080000 size=02dbch ( 11708) load[0m
+[0;32mI (134) esp_image: segment 3: paddr=00030020 vaddr=400d0020 size=3e478h (255096) map[0m
+[0;32mI (222) esp_image: segment 4: paddr=0006e4a0 vaddr=40082dbc size=103ach ( 66476) load[0m
+[0;32mI (249) esp_image: segment 5: paddr=0007e854 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (259) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (259) boot: Disabling RNG early entropy source...[0m
+[0;32mI (269) quad_psram: This chip is ESP32-D0WD[0m
+[0;32mI (271) esp_psram: Found 2MB PSRAM device[0m
+[0;32mI (271) esp_psram: Speed: 40MHz[0m
+[0;32mI (271) esp_psram: PSRAM initialized, cache is in low/high (2-core) mode.[0m
+[0;32mI (277) cpu_start: Multicore app[0m
+[0;32mI (742) esp_psram: SPI SRAM memory test OK[0m
+[0;32mI (751) cpu_start: Pro cpu start user code[0m
+[0;32mI (751) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (751) app_init: Application information:[0m
+[0;32mI (751) app_init: Project name:     .[0m
+[0;32mI (754) app_init: App version:      1[0m
+[0;32mI (757) app_init: Compile time:     Oct  8 2026 13:28:34[0m
+[0;32mI (763) app_init: ELF file SHA256:  aa6dd8a75...[0m
+[0;32mI (767) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (771) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (774) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (778) efuse_init: Chip rev:         v3.0[0m
+[0;32mI (783) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (789) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (794) heap_init: At 3FFB7878 len 00028788 (161 KiB): DRAM[0m
+[0;32mI (799) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (804) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (810) heap_init: At 40093168 len 0000CE98 (51 KiB): IRAM[0m
+[0;32mI (816) esp_psram: Adding pool of 2048K of PSRAM memory to heap allocator[0m
+[0;32mI (823) spi_flash: detected chip: generic[0m
+[0;32mI (825) spi_flash: flash io: dio[0m
+[0;33mW (828) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (841) main_task: Started on CPU0[0m
+[0;32mI (851) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (851) main_task: Calling app_main()[0m
+[0;32mI (1501) DSP_BENCH: Mounting SD card[0m
+[0;32mI (1541) DSP_BENCH: SD mounted successfully[0m
+[0;32mI (1541) DSP_BENCH: Creating run directory...[0m
+[0;32mI (1541) DSP_BENCH: Checking results directory: /sdcard/results[0m
+[0;32mI (1541) DSP_BENCH: Results directory already exists[0m
+[0;32mI (2221) DSP_BENCH: Created run directory: /sdcard/results/run_071[0m
+[0;32mI (2221) DSP_BENCH: Run directory created: /sdcard/results/run_071[0m
+[0;32mI (2221) DSP_BENCH: Writing status.txt...[0m
+[0;32mI (2341) DSP_BENCH: Status changed to: SD_OK_CAMERA_NOT_STARTED[0m
+[0;32mI (2341) DSP_BENCH: Finished status.txt step[0m
+[0;32mI (2341) DSP_BENCH: Writing config.txt...[0m
+[0;32mI (2361) DSP_BENCH: Finished config.txt step[0m
+[0;32mI (2361) DSP_BENCH: About to initialize camera[0m
+[0;32mI (2361) DSP_BENCH: Initializing camera[0m
+[0;32mI (2371) cam_hal: cam init ok[0m
+[0;32mI (2371) sccb-ng: pin_sda 26 pin_scl 27[0m
+[0;32mI (2371) sccb-ng: sccb_i2c_port=1[0m
+[0;32mI (2411) camera: Camera PID=0x26 VER=0x42 MIDL=0x7f MIDH=0xa2[0m
+[0;32mI (2411) camera: Detected OV2640 camera[0m
+[0;32mI (2411) camera: Detected camera at address=0x30[0m
+[0;32mI (2481) cam_hal: PSRAM DMA mode disabled[0m
+[0;32mI (2491) esp32 ll_cam: node_size: 3840, nodes_per_line: 1, lines_per_node: 6, dma_half_buffer_min:  3840, dma_half_buffer: 15360,lines_per_half_buffer: 24, dma_buffer_size: 30720, image_size: 38400[0m
+[0;32mI (2491) cam_hal: buffer_size: 30720, half_buffer_size: 15360, node_buffer_size: 3840, node_cnt: 8, total_cnt: 2[0m
+[0;32mI (2501) cam_hal: Allocating 38400 Byte frame buffer in PSRAM[0m
+[0;32mI (2511) cam_hal: cam config ok[0m
+[0;32mI (2511) ov2640: Set PLL: clk_2x: 0, clk_div: 3, pclk_auto: 1, pclk_div: 8[0m
+[0;32mI (2581) DSP_BENCH: Camera initialized[0m
+[0;32mI (2581) DSP_BENCH: Free internal RAM before DSP allocation: 247243 bytes[0m
+[0;32mI (2591) DSP_BENCH: DSP buffers allocated in INTERNAL RAM[0m
+[0;32mI (2591) DSP_BENCH: DSP buffer memory: 76800 bytes[0m
+[0;32mI (2591) DSP_BENCH: Free internal RAM after DSP allocation: 169403 bytes[0m
+[0;32mI (2601) DSP_BENCH: HOUGH initialized[0m
+[0;32mI (2601) DSP_BENCH: Hough accumulator size: 36090 bytes[0m
+[0;32mI (2821) DSP_BENCH: Status changed to: TEST_RUNNING[0m
+[0;32mI (4741) DSP_BENCH: TRACK IN frame=1 A=-1 B=-1 misses=0[0m
+[0;32mI (4771) DSP_BENCH: TRACK OUT frame=1 A=0 B=110 Acount=12 Bcount=12 misses=0[0m
+[0;32mI (5121) DSP_BENCH: TRACK IN frame=2 A=0 B=110 misses=0[0m
+[0;32mI (5151) DSP_BENCH: TRACK OUT frame=2 A=0 B=110 Acount=12 Bcount=12 misses=1[0m
+[0;32mI (5511) DSP_BENCH: TRACK IN frame=3 A=0 B=110 misses=1[0m
+[0;32mI (5541) DSP_BENCH: TRACK OUT frame=3 A=0 B=110 Acount=12 Bcount=12 misses=2[0m
+[0;32mI (5551) DSP_BENCH: BOARD frame=3 corners=(43.0,-3.8) (43.0,102.0) (95.5,109.3) (108.2,37.0)[0m
+[0;32mI (5891) DSP_BENCH: TRACK IN frame=4 A=0 B=110 misses=2[0m
+[0;32mI (5921) DSP_BENCH: TRACK OUT frame=4 A=0 B=110 Acount=12 Bcount=12 misses=3[0m
+[0;32mI (6271) DSP_BENCH: TRACK IN frame=5 A=0 B=110 misses=3[0m
+[0;32mI (6301) DSP_BENCH: TRACK OUT frame=5 A=0 B=110 Acount=12 Bcount=12 misses=4[0m
+[0;32mI (6651) DSP_BENCH: Saved /sdcard/results/run_071/Y005.pgm[0m
+[0;32mI (6981) DSP_BENCH: Saved /sdcard/results/run_071/G005.pgm[0m
+[0;32mI (7131) DSP_BENCH: Saved /sdcard/results/run_071/M005.pgm[0m
+[0;32mI (7461) DSP_BENCH: Saved /sdcard/results/run_071/E005.pgm[0m
+[0;32mI (7621) DSP_BENCH: Saved /sdcard/results/run_071/R005.pgm[0m
+[0;32mI (8051) DSP_BENCH: Saved /sdcard/results/run_071/L005.pgm[0m
+[0;32mI (8321) DSP_BENCH: Saved /sdcard/results/run_071/C005.pgm[0m
+[0;32mI (8471) DSP_BENCH: Saved /sdcard/results/run_071/B005.pgm[0m
+[0;32mI (8811) DSP_BENCH: Saved /sdcard/results/run_071/X005.pgm[0m
+[0;32mI (8991) DSP_BENCH: TRACK IN frame=6 A=0 B=110 misses=4[0m
+[0;32mI (9031) DSP_BENCH: TRACK OUT frame=6 A=0 B=110 Acount=12 Bcount=12 misses=5[0m
+[0;32mI (9331) DSP_BENCH: TRACK IN frame=7 A=0 B=110 misses=5[0m
+[0;32mI (9361) DSP_BENCH: TRACK OUT frame=7 A=0 B=110 Acount=12 Bcount=11 misses=6[0m
+[0;32mI (9371) DSP_BENCH: BOARD frame=7 corners=(42.0,-4.4) (64.0,98.9) (87.7,102.2) (102.3,33.3)[0m
+[0;32mI (9681) DSP_BENCH: TRACK IN frame=8 A=0 B=110 misses=6[0m
+[0;32mI (9711) DSP_BENCH: TRACK OUT frame=8 A=0 B=110 Acount=12 Bcount=12 misses=7[0m
+[0;32mI (10011) DSP_BENCH: TRACK IN frame=9 A=0 B=110 misses=7[0m
+[0;32mI (10041) DSP_BENCH: TRACK OUT frame=9 A=0 B=110 Acount=12 Bcount=12 misses=8[0m
+[0;32mI (10061) DSP_BENCH: BOARD frame=9 corners=(39.0,-2.8) (39.0,94.2) (82.6,101.9) (97.1,33.6)[0m
+[0;32mI (10361) DSP_BENCH: TRACK IN frame=10 A=0 B=110 misses=8[0m
+[0;32mI (10391) DSP_BENCH: TRACK OUT frame=10 A=0 B=110 Acount=12 Bcount=12 misses=9[0m
+[0;32mI (10701) DSP_BENCH: Saved /sdcard/results/run_071/Y010.pgm[0m
+[0;32mI (11031) DSP_BENCH: Saved /sdcard/results/run_071/G010.pgm[0m
+[0;32mI (11181) DSP_BENCH: Saved /sdcard/results/run_071/M010.pgm[0m
+[0;32mI (11521) DSP_BENCH: Saved /sdcard/results/run_071/E010.pgm[0m
+[0;32mI (11681) DSP_BENCH: Saved /sdcard/results/run_071/R010.pgm[0m
+[0;32mI (12121) DSP_BENCH: Saved /sdcard/results/run_071/L010.pgm[0m
+[0;32mI (12391) DSP_BENCH: Saved /sdcard/results/run_071/C010.pgm[0m
+[0;32mI (12721) DSP_BENCH: Saved /sdcard/results/run_071/B010.pgm[0m
+[0;32mI (13041) DSP_BENCH: Saved /sdcard/results/run_071/X010.pgm[0m
+[0;32mI (13191) DSP_BENCH: TRACK IN frame=11 A=0 B=110 misses=9[0m
+[0;32mI (13221) DSP_BENCH: TRACK OUT frame=11 A=0 B=110 Acount=12 Bcount=12 misses=10[0m
+[0;32mI (13531) DSP_BENCH: TRACK IN frame=12 A=0 B=110 misses=10[0m
+[0;32mI (13561) DSP_BENCH: TRACK OUT frame=12 A=0 B=110 Acount=11 Bcount=12 misses=11[0m
+[0;32mI (13861) DSP_BENCH: TRACK IN frame=13 A=0 B=110 misses=11[0m
+[0;32mI (13891) DSP_BENCH: TRACK OUT frame=13 A=0 B=110 Acount=11 Bcount=10 misses=12[0m
+[0;32mI (13911) DSP_BENCH: BOARD frame=13 corners=(40.0,-2.1) (40.0,92.5) (86.3,99.0) (99.9,35.3)[0m
+[0;32mI (14211) DSP_BENCH: TRACK IN frame=14 A=0 B=110 misses=12[0m
+[0;32mI (14251) DSP_BENCH: TRACK OUT frame=14 A=0 B=110 Acount=12 Bcount=12 misses=13[0m
+[0;32mI (14551) DSP_BENCH: TRACK IN frame=15 A=0 B=110 misses=13[0m
+[0;32mI (14591) DSP_BENCH: TRACK OUT frame=15 A=0 B=110 Acount=12 Bcount=12 misses=14[0m
+[0;32mI (14601) DSP_BENCH: BOARD frame=15 corners=(45.0,-2.5) (45.0,94.2) (94.9,101.2) (106.4,35.8)[0m
+[0;32mI (14881) DSP_BENCH: Saved /sdcard/results/run_071/Y015.pgm[0m
+[0;32mI (15021) DSP_BENCH: Saved /sdcard/results/run_071/G015.pgm[0m
+[0;32mI (15151) DSP_BENCH: Saved /sdcard/results/run_071/M015.pgm[0m
+[0;32mI (15291) DSP_BENCH: Saved /sdcard/results/run_071/E015.pgm[0m
+[0;32mI (15441) DSP_BENCH: Saved /sdcard/results/run_071/R015.pgm[0m
+[0;32mI (15681) DSP_BENCH: Saved /sdcard/results/run_071/L015.pgm[0m
+[0;32mI (15931) DSP_BENCH: Saved /sdcard/results/run_071/C015.pgm[0m
+[0;32mI (16071) DSP_BENCH: Saved /sdcard/results/run_071/B015.pgm[0m
+[0;32mI (16211) DSP_BENCH: Saved /sdcard/results/run_071/X015.pgm[0m
+[0;32mI (16371) DSP_BENCH: TRACK IN frame=16 A=0 B=110 misses=14[0m
+[0;32mI (16401) DSP_BENCH: TRACK OUT frame=16 A=0 B=110 Acount=12 Bcount=12 misses=15[0m
+[0;32mI (16711) DSP_BENCH: TRACK IN frame=17 A=0 B=110 misses=15[0m
+[0;32mI (16741) DSP_BENCH: TRACK OUT frame=17 A=0 B=110 Acount=12 Bcount=12 misses=16[0m
+[0;32mI (16751) DSP_BENCH: BOARD frame=17 corners=(45.1,-2.5) (58.7,94.1) (97.2,99.5) (108.2,37.0)[0m
+[0;32mI (17061) DSP_BENCH: TRACK IN frame=18 A=0 B=110 misses=16[0m
+[0;32mI (17091) DSP_BENCH: TRACK OUT frame=18 A=0 B=110 Acount=12 Bcount=12 misses=17[0m
+[0;32mI (17401) DSP_BENCH: TRACK IN frame=19 A=0 B=110 misses=17[0m
+[0;32mI (17431) DSP_BENCH: TRACK OUT frame=19 A=0 B=110 Acount=12 Bcount=12 misses=18[0m
+[0;32mI (17741) DSP_BENCH: TRACK IN frame=20 A=0 B=110 misses=18[0m
+[0;32mI (17771) DSP_BENCH: TRACK OUT frame=20 A=0 B=110 Acount=12 Bcount=12 misses=19[0m
+[0;32mI (17791) DSP_BENCH: BOARD frame=20 corners=(43.2,-3.7) (39.8,92.4) (94.3,100.1) (107.7,36.7)[0m
+[0;32mI (18081) DSP_BENCH: Saved /sdcard/results/run_071/Y020.pgm[0m
+[0;32mI (18211) DSP_BENCH: Saved /sdcard/results/run_071/G020.pgm[0m
+[0;32mI (18351) DSP_BENCH: Saved /sdcard/results/run_071/M020.pgm[0m
+[0;32mI (18491) DSP_BENCH: Saved /sdcard/results/run_071/E020.pgm[0m
+[0;32mI (18641) DSP_BENCH: Saved /sdcard/results/run_071/R020.pgm[0m
+[0;32mI (18881) DSP_BENCH: Saved /sdcard/results/run_071/L020.pgm[0m
+[0;32mI (19131) DSP_BENCH: Saved /sdcard/results/run_071/C020.pgm[0m
+[0;32mI (19271) DSP_BENCH: Saved /sdcard/results/run_071/B020.pgm[0m
+[0;32mI (19421) DSP_BENCH: Saved /sdcard/results/run_071/X020.pgm[0m
+[0;32mI (19571) DSP_BENCH: TRACK IN frame=21 A=0 B=110 misses=19[0m
+[0;32mI (19601) DSP_BENCH: TRACK OUT frame=21 A=0 B=110 Acount=12 Bcount=12 misses=20[0m
+[0;32mI (19611) DSP_BENCH: BOARD frame=21 corners=(44.0,-3.2) (44.0,92.0) (98.1,99.6) (107.0,36.2)[0m
+[0;32mI (19901) DSP_BENCH: TRACK IN frame=22 A=0 B=110 misses=20[0m
+[0;32mI (19931) DSP_BENCH: TRACK OUT frame=22 A=0 B=110 Acount=10 Bcount=11 misses=21[0m
+[0;32mI (19951) DSP_BENCH: BOARD frame=22 corners=(51.0,-1.2) (51.0,93.0) (98.4,99.7) (111.8,36.8)[0m
+[0;32mI (20251) DSP_BENCH: TRACK IN frame=23 A=0 B=110 misses=21[0m
+[0;32mI (20281) DSP_BENCH: TRACK OUT frame=23 A=0 B=110 Acount=12 Bcount=12 misses=22[0m
+[0;32mI (20301) DSP_BENCH: BOARD frame=23 corners=(39.0,-2.8) (39.0,92.3) (97.0,100.5) (107.7,40.2)[0m
+[0;32mI (20581) DSP_BENCH: TRACK IN frame=24 A=0 B=110 misses=22[0m
+[0;32mI (20621) DSP_BENCH: TRACK OUT frame=24 A=0 B=110 Acount=11 Bcount=11 misses=23[0m
+[0;32mI (20631) DSP_BENCH: BOARD frame=24 corners=(50.0,-1.8) (50.0,92.9) (90.5,98.6) (104.6,32.3)[0m
+[0;32mI (20921) DSP_BENCH: TRACK IN frame=25 A=0 B=110 misses=23[0m
+[0;32mI (20951) DSP_BENCH: TRACK OUT frame=25 A=0 B=110 Acount=12 Bcount=9 misses=24[0m
+[0;32mI (20961) DSP_BENCH: BOARD frame=25 corners=(50.0,-1.8) (50.0,92.9) (90.5,98.6) (104.6,32.3)[0m
+[0;32mI (21251) DSP_BENCH: Saved /sdcard/results/run_071/Y025.pgm[0m
+[0;32mI (21391) DSP_BENCH: Saved /sdcard/results/run_071/G025.pgm[0m
+[0;32mI (21701) DSP_BENCH: Saved /sdcard/results/run_071/M025.pgm[0m
+[0;32mI (21871) DSP_BENCH: Saved /sdcard/results/run_071/E025.pgm[0m
+[0;32mI (22021) DSP_BENCH: Saved /sdcard/results/run_071/R025.pgm[0m
+[0;32mI (22261) DSP_BENCH: Saved /sdcard/results/run_071/L025.pgm[0m
+[0;32mI (22501) DSP_BENCH: Saved /sdcard/results/run_071/C025.pgm[0m
+[0;32mI (22641) DSP_BENCH: Saved /sdcard/results/run_071/B025.pgm[0m
+[0;32mI (22791) DSP_BENCH: Saved /sdcard/results/run_071/X025.pgm[0m
+[0;32mI (22951) DSP_BENCH: TRACK IN frame=26 A=0 B=110 misses=24[0m
+[0;32mI (22981) DSP_BENCH: TRACK OUT frame=26 A=0 B=110 Acount=12 Bcount=12 misses=25[0m
+[0;32mI (22991) DSP_BENCH: BOARD frame=26 corners=(45.0,-4.9) (68.0,103.5) (97.8,107.7) (112.7,37.4)[0m
+[0;32mI (23301) DSP_BENCH: TRACK IN frame=27 A=0 B=110 misses=25[0m
+[0;32mI (23331) DSP_BENCH: TRACK OUT frame=27 A=0 B=110 Acount=12 Bcount=12 misses=26[0m
+[0;32mI (23351) DSP_BENCH: BOARD frame=27 corners=(43.2,-3.7) (63.7,92.8) (109.4,99.2) (119.2,43.8)[0m
+[0;32mI (23661) DSP_BENCH: TRACK IN frame=28 A=0 B=110 misses=26[0m
+[0;32mI (23691) DSP_BENCH: TRACK OUT frame=28 A=0 B=110 Acount=10 Bcount=12 misses=27[0m
+[0;32mI (23711) DSP_BENCH: BOARD frame=28 corners=(44.0,-3.2) (44.0,92.0) (114.2,101.9) (118.3,43.2)[0m
+[0;32mI (24011) DSP_BENCH: TRACK IN frame=29 A=0 B=110 misses=27[0m
+[0;32mI (24041) DSP_BENCH: TRACK OUT frame=29 A=0 B=110 Acount=12 Bcount=12 misses=28[0m
+[0;32mI (24051) DSP_BENCH: BOARD frame=29 corners=(51.0,-1.2) (51.0,92.0) (99.6,98.8) (112.7,37.4)[0m
+[0;32mI (24351) DSP_BENCH: TRACK IN frame=30 A=0 B=110 misses=28[0m
+[0;32mI (24381) DSP_BENCH: TRACK OUT frame=30 A=0 B=110 Acount=12 Bcount=12 misses=29[0m
+[0;32mI (24401) DSP_BENCH: BOARD frame=30 corners=(50.0,0.6) (50.0,91.9) (98.6,98.7) (111.3,38.9)[0m
+[0;32mI (24681) DSP_BENCH: Saved /sdcard/results/run_071/Y030.pgm[0m
+[0;32mI (24821) DSP_BENCH: Saved /sdcard/results/run_071/G030.pgm[0m
+[0;32mI (24961) DSP_BENCH: Saved /sdcard/results/run_071/M030.pgm[0m
+[0;32mI (25091) DSP_BENCH: Saved /sdcard/results/run_071/E030.pgm[0m
+[0;32mI (25421) DSP_BENCH: Saved /sdcard/results/run_071/R030.pgm[0m
+[0;32mI (25661) DSP_BENCH: Saved /sdcard/results/run_071/L030.pgm[0m
+[0;32mI (25921) DSP_BENCH: Saved /sdcard/results/run_071/C030.pgm[0m
+[0;32mI (26061) DSP_BENCH: Saved /sdcard/results/run_071/B030.pgm[0m
+[0;32mI (26211) DSP_BENCH: Saved /sdcard/results/run_071/X030.pgm[0m
+[0;32mI (26541) DSP_BENCH: Status changed to: COMPLETE[0m
+[0;32mI (26541) DSP_BENCH: BENCHMARK completed successfully[0m

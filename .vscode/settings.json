@@ -1,0 +1,5 @@
+{
+    "idf.currentSetup": "/home/markodev/esp/esp-idf",
+    "idf.flashType": "UART",
+    "idf.port": "/dev/ttyUSB0"
+}

@@ -1,0 +1,133 @@
+Command: /home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/markodev/esp/esp-idf/tools/idf_monitor.py -p /dev/ttyUSB0 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /home/markodev/esp32cam_dsp_benchmark/build/..elf /home/markodev/esp32cam_dsp_benchmark/build/bootloader/bootloader.elf -m '/home/markodev/.espressif/python_env/idf5.5_py3.12_env/bin/python' '/home/markodev/esp/esp-idf/tools/idf.py' '-p' '/dev/ttyUSB0'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Oct  8 2026 12:06:42[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=17fc0h ( 98240) map[0m
+[0;32mI (122) esp_image: segment 1: paddr=00027fe8 vaddr=3ffb0000 size=050dch ( 20700) load[0m
+[0;32mI (129) esp_image: segment 2: paddr=0002d0cc vaddr=40080000 size=02f4ch ( 12108) load[0m
+[0;32mI (134) esp_image: segment 3: paddr=00030020 vaddr=400d0020 size=3cb28h (248616) map[0m
+[0;32mI (220) esp_image: segment 4: paddr=0006cb50 vaddr=40082f4c size=1021ch ( 66076) load[0m
+[0;32mI (246) esp_image: segment 5: paddr=0007cd74 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (256) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (256) boot: Disabling RNG early entropy source...[0m
+[0;32mI (267) quad_psram: This chip is ESP32-D0WD[0m
+[0;32mI (268) esp_psram: Found 2MB PSRAM device[0m
+[0;32mI (268) esp_psram: Speed: 40MHz[0m
+[0;32mI (268) esp_psram: PSRAM initialized, cache is in low/high (2-core) mode.[0m
+[0;32mI (274) cpu_start: Multicore app[0m
+[0;32mI (740) esp_psram: SPI SRAM memory test OK[0m
+[0;32mI (748) cpu_start: Pro cpu start user code[0m
+[0;32mI (748) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (748) app_init: Application information:[0m
+[0;32mI (748) app_init: Project name:     .[0m
+[0;32mI (752) app_init: App version:      1[0m
+[0;32mI (755) app_init: Compile time:     Oct  8 2026 13:28:34[0m
+[0;32mI (760) app_init: ELF file SHA256:  44ca3e185...[0m
+[0;32mI (764) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (768) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (772) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (776) efuse_init: Chip rev:         v3.0[0m
+[0;32mI (780) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (786) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (791) heap_init: At 3FFB65F0 len 00029A10 (166 KiB): DRAM[0m
+[0;32mI (796) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (802) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (807) heap_init: At 40093168 len 0000CE98 (51 KiB): IRAM[0m
+[0;32mI (813) esp_psram: Adding pool of 2048K of PSRAM memory to heap allocator[0m
+[0;32mI (820) spi_flash: detected chip: generic[0m
+[0;32mI (823) spi_flash: flash io: dio[0m
+[0;33mW (826) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (839) main_task: Started on CPU0[0m
+[0;32mI (849) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[0;32mI (849) main_task: Calling app_main()[0m
+[0;32mI (1499) DSP_BENCH: Mounting SD card[0m
+[0;32mI (1689) DSP_BENCH: SD mounted successfully[0m
+[0;32mI (1689) DSP_BENCH: Creating run directory...[0m
+[0;32mI (1689) DSP_BENCH: Checking results directory: /sdcard/results[0m
+[0;32mI (1699) DSP_BENCH: Results directory already exists[0m
+[0;32mI (2029) DSP_BENCH: Created run directory: /sdcard/results/run_021[0m
+[0;32mI (2029) DSP_BENCH: Run directory created: /sdcard/results/run_021[0m
+[0;32mI (2029) DSP_BENCH: Writing status.txt...[0m
+[0;32mI (2049) DSP_BENCH: Status changed to: SD_OK_CAMERA_NOT_STARTED[0m
+[0;32mI (2049) DSP_BENCH: Finished status.txt step[0m
+[0;32mI (2049) DSP_BENCH: Writing config.txt...[0m
+[0;32mI (2079) DSP_BENCH: Finished config.txt step[0m
+[0;32mI (2079) DSP_BENCH: About to initialize camera[0m
+[0;32mI (2079) DSP_BENCH: Initializing camera[0m
+[0;32mI (2079) cam_hal: cam init ok[0m
+[0;32mI (2079) sccb-ng: pin_sda 26 pin_scl 27[0m
+[0;32mI (2089) sccb-ng: sccb_i2c_port=1[0m
+[0;32mI (2119) ov3640: Mismatch PID=0x0[0m
+[0;32mI (2119) ov3660: Mismatch PID=0x0[0m
+[0;32mI (2119) ov5640: Mismatch PID=0x0[0m
+[0;32mI (2119) camera: Camera PID=0x2145 VER=0x00 MIDL=0x00 MIDH=0x00[0m
+[0;32mI (2119) camera: Detected GC2145 camera[0m
+[0;32mI (2129) camera: Detected camera at address=0x3c[0m
+[0;32mI (2559) cam_hal: PSRAM DMA mode disabled[0m
+[0;32mI (2559) esp32 ll_cam: node_size: 3840, nodes_per_line: 1, lines_per_node: 6, dma_half_buffer_min:  3840, dma_half_buffer: 15360,lines_per_half_buffer: 24, dma_buffer_size: 30720, image_size: 38400[0m
+[0;32mI (2569) cam_hal: buffer_size: 30720, half_buffer_size: 15360, node_buffer_size: 3840, node_cnt: 8, total_cnt: 2[0m
+[0;32mI (2579) cam_hal: Allocating 38400 Byte frame buffer in PSRAM[0m
+[0;32mI (2579) cam_hal: cam config ok[0m
+[0;32mI (2589) gc2145: subsample win:480x360, ratio:0.333333[0m
+[0;32mI (2599) DSP_BENCH: Camera initialized[0m
+[0;32mI (2599) DSP_BENCH: Free internal RAM before DSP allocation: 251767 bytes[0m
+[0;32mI (2599) DSP_BENCH: DSP buffers allocated in INTERNAL RAM[0m
+[0;32mI (2609) DSP_BENCH: DSP buffer memory: 76800 bytes[0m
+[0;32mI (2609) DSP_BENCH: Free internal RAM after DSP allocation: 173927 bytes[0m
+[0;32mI (2619) DSP_BENCH: HOUGH initialized[0m
+[0;32mI (2619) DSP_BENCH: Hough accumulator size: 36090 bytes[0m
+[0;32mI (2659) DSP_BENCH: Status changed to: TEST_RUNNING[0m
+[0;32mI (7399) DSP_BENCH: Saved /sdcard/results/run_021/Y005.pgm[0m
+[0;32mI (7729) DSP_BENCH: Saved /sdcard/results/run_021/G005.pgm[0m
+[0;32mI (7879) DSP_BENCH: Saved /sdcard/results/run_021/M005.pgm[0m
+[0;32mI (8019) DSP_BENCH: Saved /sdcard/results/run_021/E005.pgm[0m
+[0;32mI (8449) DSP_BENCH: Saved /sdcard/results/run_021/L005.pgm[0m
+[0;32mI (10519) DSP_BENCH: Saved /sdcard/results/run_021/Y010.pgm[0m
+[0;32mI (10859) DSP_BENCH: Saved /sdcard/results/run_021/G010.pgm[0m
+[0;32mI (10999) DSP_BENCH: Saved /sdcard/results/run_021/M010.pgm[0m
+[0;32mI (11329) DSP_BENCH: Saved /sdcard/results/run_021/E010.pgm[0m
+[0;32mI (11739) DSP_BENCH: Saved /sdcard/results/run_021/L010.pgm[0m
+[0;32mI (13879) DSP_BENCH: Saved /sdcard/results/run_021/Y015.pgm[0m
+[0;32mI (14219) DSP_BENCH: Saved /sdcard/results/run_021/G015.pgm[0m
+[0;32mI (14359) DSP_BENCH: Saved /sdcard/results/run_021/M015.pgm[0m
+[0;32mI (14499) DSP_BENCH: Saved /sdcard/results/run_021/E015.pgm[0m
+[0;32mI (14729) DSP_BENCH: Saved /sdcard/results/run_021/L015.pgm[0m
+[0;32mI (16919) DSP_BENCH: Saved /sdcard/results/run_021/Y020.pgm[0m
+[0;32mI (17059) DSP_BENCH: Saved /sdcard/results/run_021/G020.pgm[0m
+[0;32mI (17189) DSP_BENCH: Saved /sdcard/results/run_021/M020.pgm[0m
+[0;32mI (17319) DSP_BENCH: Saved /sdcard/results/run_021/E020.pgm[0m
+[0;32mI (17559) DSP_BENCH: Saved /sdcard/results/run_021/L020.pgm[0m
+[0;32mI (19729) DSP_BENCH: Saved /sdcard/results/run_021/Y025.pgm[0m
+[0;32mI (19859) DSP_BENCH: Saved /sdcard/results/run_021/G025.pgm[0m
+[0;32mI (19989) DSP_BENCH: Saved /sdcard/results/run_021/M025.pgm[0m
+[0;32mI (20129) DSP_BENCH: Saved /sdcard/results/run_021/E025.pgm[0m
+[0;32mI (20359) DSP_BENCH: Saved /sdcard/results/run_021/L025.pgm[0m
+[0;32mI (22479) DSP_BENCH: Saved /sdcard/results/run_021/Y030.pgm[0m
+[0;32mI (22609) DSP_BENCH: Saved /sdcard/results/run_021/G030.pgm[0m
+[0;32mI (22749) DSP_BENCH: Saved /sdcard/results/run_021/M030.pgm[0m
+[0;32mI (22879) DSP_BENCH: Saved /sdcard/results/run_021/E030.pgm[0m
+[0;32mI (23119) DSP_BENCH: Saved /sdcard/results/run_021/L030.pgm[0m
+[0;32mI (23189) DSP_BENCH: Status changed to: COMPLETE[0m
+[0;32mI (23189) DSP_BENCH: BENCHMARK completed successfully[0m
