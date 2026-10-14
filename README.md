@@ -1,38 +1,47 @@
-# ESP32-CAM Real-Time Chessboard Localization
+cat > README.md <<'EOF'
+# ESP32-CAM Chessboard Localization
 
-Real-time image processing and chessboard localization project implemented on an ESP32-CAM using ESP-IDF.
+Embedded computer-vision and DSP project for chessboard localization using an **ESP32-CAM** and **OV2640 camera**.
 
-The project was developed as part of a university course focused on **real-time techniques and digital signal processing (DSP)**.
+The system captures a chessboard, extracts the luminance channel, performs image preprocessing, detects the complete 9×9 chessboard grid using a Harris-based method, determines the four board corners, and applies perspective correction to produce a normalized **96×96 grayscale chessboard image**.
 
-The main goal is to capture a chessboard using an ESP32-CAM, process the image directly on the ESP32, detect the chessboard structure, and determine the position of the board inside the camera frame.
-
-The project also benchmarks the computational cost of the different processing stages in order to evaluate whether the system can later be extended into a complete embedded chess assistant.
-
----
-
-## Hardware
-
-- ESP32-CAM
-- OV2640 camera
-- 2 MB PSRAM
-- microSD card
-- ESP32 dual-core Xtensa LX6
-- Current CPU frequency: 160 MHz
-
-The camera framebuffer is stored in PSRAM while the main DSP working buffers are allocated in internal RAM for better performance.
+The project was developed in **ESP-IDF** for the university course **Real-Time and DSP Techniques**.
 
 ---
 
-## Software
+## Final Result
 
-- ESP-IDF v5.5.1
-- `espressif/esp32-camera`
-- FATFS
-- SDMMC
-- ESP Timer
-- ESP-IDF heap capabilities API
+The final implementation performs:
 
-Target:
+- OV2640 camera acquisition
+- Y-channel extraction from YUV422
+- 3×3 Gaussian filtering
+- Harris corner detection
+- Non-maximum suppression
+- Grid-direction estimation
+- 9×9 chessboard grid reconstruction
+- Board-corner ordering
+- Projective perspective correction
+- Bilinear interpolation
+- 96×96 normalized chessboard generation
+- Per-stage performance benchmarking
+- Diagnostic image saving to microSD
+
+### Final Benchmark
+
+| Metric | Result |
+|---|---:|
+| Input resolution | 160×120 |
+| Output resolution | 96×96 |
+| CPU frequency | 240 MHz |
+| Grid detection success | 30 / 30 |
+| Perspective warp success | 30 / 30 |
+| Average localization time | 268.083 ms |
+| Minimum localization time | 265.591 ms |
+| Maximum localization time | 269.480 ms |
+| Effective localization rate | 3.730 FPS |
+
+The final benchmark completed with:
 
 ```text
-ESP32
+RESULT: PASS

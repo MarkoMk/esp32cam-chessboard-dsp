@@ -1,2 +1,0 @@
-source /home/markodev/esp32cam_dsp_benchmark/build/gdbinit/symbols
-source /home/markodev/esp32cam_dsp_benchmark/build/gdbinit/connect

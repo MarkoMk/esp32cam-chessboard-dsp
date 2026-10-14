@@ -1,0 +1,14 @@
+# ESP-IDF build output
+build/
+
+# Clang / IDE cache
+.cache/
+.vscode/
+
+# ESP-IDF generated/temporary files
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# Logs
+*.log

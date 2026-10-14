@@ -114,7 +114,6 @@
 #define GRID_PROJECTION_HIST_BINS   256
 #define GRID_PEAK_MIN_SEPARATION    7
 #define GRID_ASSIGN_MAX_DISTANCE    5.0f
-#define GRID_MIN_POINTS_PER_LINE    2
 
 /* OUTER LINE CONFIG */
 
@@ -137,7 +136,6 @@
 /* NEW CHESS GRID CONFIG */
 
 #define GRID_LINE_COUNT             9
-#define GRID_KMEANS_ITERATIONS      12
 #define GRID_MIN_POINTS_PER_LINE    2
 #define GRID_MAX_LINE_ANGLE_ERROR_DEG 12.0f
 
@@ -145,6 +143,11 @@
 #define GRID_PAIR_MIN_DIST          6
 #define GRID_PAIR_MAX_DIST          13
 #define GRID_AXIS_MIN_SEP_BINS      30
+
+/* PERSPECTIVE CORRECTION */
+
+#define BOARD_WARP_SIZE             96
+#define BOARD_WARP_PIXELS           (BOARD_WARP_SIZE * BOARD_WARP_SIZE)
 
 /* GLOBALS */
 
@@ -154,10 +157,7 @@ static uint8_t *gray_buffer = NULL;
 static uint8_t *blur_buffer = NULL;
 static uint8_t *gradient_buffer = NULL;
 static uint8_t *edge_buffer = NULL;
-
-/* Frozen reference image used during development */
-static uint8_t *reference_gray_buffer = NULL;
-static bool reference_frame_valid = false;
+static uint8_t *board_warp_buffer = NULL;
 
 /* BASIC POINT TYPE */
 
@@ -182,8 +182,6 @@ typedef struct {
     uint8_t score;
 } chess_corner_t;
 
-static chess_corner_t chess_corners[CHESS_CORNER_MAX];
-
 /* NEW GRID LINE */
 
 typedef struct {
@@ -206,7 +204,18 @@ typedef struct {
     int valid;
 } chess_grid_t;
 
-static chess_grid_t detected_grid;
+typedef struct {
+    float a;
+    float b;
+    float c;
+
+    float d;
+    float e;
+    float f;
+
+    float g;
+    float h;
+} projective_map_t;
 
 /* HOUGH OUTER-LINE PAIR */
 
@@ -295,6 +304,12 @@ static void blink_once(int on_ms, int off_ms)
     gpio_set_level(STATUS_LED_GPIO, 0);
     vTaskDelay(pdMS_TO_TICKS(off_ms));
 }
+
+static int warp_chessboard(
+    const uint8_t *source,
+    uint8_t *destination,
+    const chess_grid_t *grid
+);
 
 /*
     ERROR CODES:
@@ -460,38 +475,96 @@ static esp_err_t write_status(const char *run_directory, const char *status)
 static void save_configuration(const char *run_directory)
 {
     char filename[128];
-    snprintf(filename, sizeof(filename), "%s/config.txt", run_directory);
+
+    snprintf(
+        filename,
+        sizeof(filename),
+        "%s/config.txt",
+        run_directory
+    );
 
     FILE *file = fopen(filename, "w");
 
     if (file == NULL) {
+        ESP_LOGE(TAG, "Failed to write configuration file");
         return;
     }
 
-    fprintf(file,
-        "ESP32-CAM DSP Benchmark - Phase 2\n"
+    fprintf(
+        file,
+
+        "ESP32-CAM Chessboard Localization Benchmark\n"
+        "============================================\n"
         "\n"
+
+        "HARDWARE\n"
+        "--------\n"
         "Board: ESP32-CAM\n"
         "Processor: ESP32 Xtensa LX6\n"
-        "Camera: GC2145\n"
-        "Sensor PID: 0x2145\n"
+        "CPU frequency: 240 MHz\n"
+        "Flash: 4 MB\n"
+        "PSRAM: 2 MB\n"
+        "Camera: OV2640\n"
+        "\n"
+
+        "CAMERA CONFIGURATION\n"
+        "--------------------\n"
         "Pixel format: YUV422\n"
-        "DSP input: Y/luminance channel\n"
-        "Resolution: 160x120 QQVGA\n"
-        "GalaxyCore mode: Subsample Mode\n"
-        "Evidence image format: PGM grayscale\n"
+        "Input resolution: 160x120 QQVGA\n"
         "XCLK: 10 MHz\n"
         "Camera framebuffer count: 1\n"
-        "Framebuffer location: PSRAM\n"
-        "DSP buffers: Internal RAM\n"
-        "SD interface: SDMMC\n"
-        "SD bus width: 1-bit\n"
+        "Camera framebuffer location: PSRAM\n"
+        "DSP input: Y/luminance channel\n"
+        "\n"
+
+        "FINAL LOCALIZATION PIPELINE\n"
+        "---------------------------\n"
+        "1. Y-channel extraction\n"
+        "2. Gaussian 3x3 filtering\n"
+        "3. Harris corner response\n"
+        "4. Harris non-maximum suppression\n"
+        "5. Grid direction estimation\n"
+        "6. Weighted 1-D projection peak detection\n"
+        "7. 9x9 chessboard grid fitting\n"
+        "8. Ordered board-corner extraction\n"
+        "9. Projective perspective correction\n"
+        "\n"
+
+        "Normalized board size: %dx%d\n"
+        "Normalized chess square size: %dx%d pixels\n"
+        "\n"
+
+        "LEGACY / COMPARISON PIPELINE\n"
+        "----------------------------\n"
+        "Gaussian + Sobel + threshold + ROI + Hough transform\n"
+        "Hough processing retained for benchmark comparison.\n"
+        "\n"
+
+        "MEMORY\n"
+        "------\n"
+        "Camera framebuffer: PSRAM\n"
+        "Main DSP image buffers: internal RAM\n"
+        "Perspective-warp buffer: internal RAM\n"
+        "\n"
+
+        "TEST CONFIGURATION\n"
+        "------------------\n"
         "Edge threshold: %d\n"
-        "Warmup frames: %d\n"
-        "Measured frames: %d\n",
+        "Warm-up frames: %d\n"
+        "Measured frames: %d\n"
+        "Save every N frames: %d\n"
+        "\n",
+
+        BOARD_WARP_SIZE,
+        BOARD_WARP_SIZE,
+
+        BOARD_WARP_SIZE / 8,
+        BOARD_WARP_SIZE / 8,
+
         EDGE_THRESHOLD,
         WARMUP_FRAMES,
-        TEST_FRAMES
+        TEST_FRAMES,
+        SAVE_EVERY_N
     );
 
     fclose(file);
@@ -501,39 +574,81 @@ static void save_configuration(const char *run_directory)
 
 static esp_err_t init_dsp_buffers(void)
 {
-    size_t internal_before = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    size_t internal_before =heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    ESP_LOGI(TAG, "Free internal RAM before DSP allocation: %u bytes", (unsigned)internal_before);
+    ESP_LOGI(TAG, "Free internal RAM before DSP allocation: %u bytes",(unsigned)internal_before);
 
+    /*
+     * Main 160x120 DSP buffers.
+     */
     gray_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     blur_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     gradient_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     edge_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    if (gray_buffer == NULL || blur_buffer == NULL || gradient_buffer == NULL || edge_buffer == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate DSP buffers in internal RAM");
+    if (gray_buffer == NULL ||
+        blur_buffer == NULL ||
+        gradient_buffer == NULL ||
+        edge_buffer == NULL) {
+
+        ESP_LOGE(
+            TAG,
+            "Failed to allocate main DSP buffers"
+        );
+
+        return ESP_ERR_NO_MEM;
+    }
+
+    /*
+     * 96x96 perspective-corrected
+     * chessboard buffer.
+     */
+    board_warp_buffer =
+        heap_caps_malloc(
+            BOARD_WARP_PIXELS,
+            MALLOC_CAP_INTERNAL |
+            MALLOC_CAP_8BIT
+        );
+
+    if (board_warp_buffer == NULL) {
+
+        ESP_LOGE(
+            TAG,
+            "Failed to allocate board warp buffer"
+        );
+
         return ESP_ERR_NO_MEM;
     }
 
     size_t internal_after = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    ESP_LOGI(TAG, "DSP buffers allocated in INTERNAL RAM");
-    ESP_LOGI(TAG, "DSP buffer memory: %u bytes", (unsigned)(IMG_PIXELS * 4));
-    ESP_LOGI(TAG, "Free internal RAM after DSP allocation: %u bytes", (unsigned)internal_after);
+        ESP_LOGI(TAG, "DSP buffers allocated in INTERNAL RAM");
 
-    return ESP_OK;
+        ESP_LOGI(TAG, "Four 160x120 DSP buffers: %u bytes", (unsigned)(IMG_PIXELS * 4));
+
+        ESP_LOGI(TAG, "Board warp buffer: %u bytes", (unsigned)BOARD_WARP_PIXELS);
+
+        ESP_LOGI(TAG, "Total primary DSP buffer memory: %u bytes", (unsigned)(IMG_PIXELS * 4 + BOARD_WARP_PIXELS));
+
+        ESP_LOGI(TAG, "Free internal RAM after DSP allocation: %u bytes", (unsigned)internal_after);
+
+    return ESP_OK;  
 }
 
 static esp_err_t init_hough(void)
 {
-        hough_accumulator = heap_caps_calloc(HOUGH_THETA_BINS * HOUGH_RHO_BINS, sizeof(uint8_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    hough_accumulator = heap_caps_calloc(HOUGH_THETA_BINS * HOUGH_RHO_BINS, sizeof(uint8_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    line_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    line_buffer = heap_caps_malloc(IMG_PIXELS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
     if (hough_accumulator == NULL || line_buffer == NULL) {
         ESP_LOGE(TAG, "Failed to allocate Hough buffers");
         return ESP_ERR_NO_MEM;
     }
+
+    ESP_LOGI(TAG, "Hough accumulator: %u bytes", (unsigned)(HOUGH_THETA_BINS * HOUGH_RHO_BINS));
+    ESP_LOGI(TAG, "Harris/line working buffer: %u bytes INTERNAL RAM", (unsigned)IMG_PIXELS);
+    ESP_LOGI(TAG, "Free internal RAM after Hough/work allocation: %u bytes", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
     for (int t = 0; t < HOUGH_THETA_BINS; t++) {
 
@@ -593,11 +708,11 @@ static void sobel_filter(const uint8_t *input, uint8_t *output)
             int idx = y * IMG_WIDTH + x;
 
             int gx = -input[idx - IMG_WIDTH - 1] + input[idx - IMG_WIDTH + 1]
-                   - (input[idx - 1] << 1) + (input[idx + 1] << 1)
-                   - input[idx + IMG_WIDTH - 1] + input[idx + IMG_WIDTH + 1];
+                    - (input[idx - 1] << 1) + (input[idx + 1] << 1)
+                    - input[idx + IMG_WIDTH - 1] + input[idx + IMG_WIDTH + 1];
 
             int gy = -input[idx - IMG_WIDTH - 1] - (input[idx - IMG_WIDTH] << 1) - input[idx - IMG_WIDTH + 1]
-                   + input[idx + IMG_WIDTH - 1] + (input[idx + IMG_WIDTH] << 1) + input[idx + IMG_WIDTH + 1];
+                    + input[idx + IMG_WIDTH - 1] + (input[idx + IMG_WIDTH] << 1) + input[idx + IMG_WIDTH + 1];
 
             int magnitude = abs(gx) + abs(gy);
 
@@ -768,11 +883,7 @@ static void detect_edge_roi(const uint8_t *edges, edge_roi_t *roi)
         }
     }
 
-    memcpy(
-        roi_block_mask,
-        expanded_mask,
-        sizeof(roi_block_mask)
-    );
+    memcpy(roi_block_mask, expanded_mask, sizeof(roi_block_mask));
 
     int min_bx = ROI_BLOCK_COLS;
     int min_by = ROI_BLOCK_ROWS;
@@ -965,10 +1076,7 @@ static int find_hough_lines(void)
 
         line_count++;
 
-        suppress_hough_peak(
-            best_theta,
-            best_rho_index
-        );
+        suppress_hough_peak(best_theta, best_rho_index);
     }
 
     return line_count;
@@ -2401,6 +2509,263 @@ static void render_chess_corners(int count)
     }
 }
 
+static void grid_debug_pixel(
+    uint8_t *image,
+    int x,
+    int y)
+{
+    if (x < 0 || x >= IMG_WIDTH ||
+        y < 0 || y >= IMG_HEIGHT) {
+        return;
+    }
+
+    int index = y * IMG_WIDTH + x;
+
+    /*
+     * Draw with opposite intensity from
+     * the underlying grayscale pixel.
+     */
+    image[index] =
+        (gray_buffer[index] > 127)
+            ? 0
+            : 255;
+}
+
+
+static void draw_grid_debug_line(
+    uint8_t *image,
+    const grid_line_t *line)
+{
+    if (!line->valid) {
+        return;
+    }
+
+    /*
+     * Line equation:
+     *
+     * a*x + b*y + c = 0
+     */
+
+    if (fabsf(line->b) >
+        fabsf(line->a)) {
+
+        /*
+         * Solve for y.
+         */
+        for (int x = 0;
+             x < IMG_WIDTH;
+             x++) {
+
+            float yf =
+                -(line->a * (float)x +
+                  line->c) /
+                line->b;
+
+            int y =
+                (int)lroundf(yf);
+
+            grid_debug_pixel(
+                image,
+                x,
+                y
+            );
+        }
+
+    } else {
+
+        /*
+         * Solve for x.
+         */
+        for (int y = 0;
+             y < IMG_HEIGHT;
+             y++) {
+
+            float xf =
+                -(line->b * (float)y +
+                  line->c) /
+                line->a;
+
+            int x =
+                (int)lroundf(xf);
+
+            grid_debug_pixel(
+                image,
+                x,
+                y
+            );
+        }
+    }
+}
+
+
+static void draw_grid_debug_corner(
+    uint8_t *image,
+    const point_f_t *point)
+{
+    int cx =
+        (int)lroundf(point->x);
+
+    int cy =
+        (int)lroundf(point->y);
+
+    /*
+     * Draw a large cross.
+     */
+    for (int d = -4; d <= 4; d++) {
+
+        grid_debug_pixel(
+            image,
+            cx + d,
+            cy
+        );
+
+        grid_debug_pixel(
+            image,
+            cx,
+            cy + d
+        );
+    }
+}
+
+
+static void draw_grid_segment(
+    uint8_t *image,
+    point_f_t p0,
+    point_f_t p1)
+{
+    int x0 = (int)lroundf(p0.x);
+    int y0 = (int)lroundf(p0.y);
+
+    int x1 = (int)lroundf(p1.x);
+    int y1 = (int)lroundf(p1.y);
+
+    int dx = abs(x1 - x0);
+    int sx = x0 < x1 ? 1 : -1;
+
+    int dy = -abs(y1 - y0);
+    int sy = y0 < y1 ? 1 : -1;
+
+    int error = dx + dy;
+
+    while (1) {
+
+        /*
+         * Make board outline thicker
+         * than the internal grid.
+         */
+        for (int oy = -1; oy <= 1; oy++) {
+            for (int ox = -1; ox <= 1; ox++) {
+
+                grid_debug_pixel(
+                    image,
+                    x0 + ox,
+                    y0 + oy
+                );
+            }
+        }
+
+        if (x0 == x1 &&
+            y0 == y1) {
+            break;
+        }
+
+        int e2 = 2 * error;
+
+        if (e2 >= dy) {
+            error += dy;
+            x0 += sx;
+        }
+
+        if (e2 <= dx) {
+            error += dx;
+            y0 += sy;
+        }
+    }
+}
+
+
+static void render_chess_grid_debug(const chess_grid_t *grid, uint8_t *output)
+{
+    /*
+     * Start with original grayscale.
+     */
+    memcpy(
+        output,
+        gray_buffer,
+        IMG_PIXELS
+    );
+
+    if (!grid->valid) {
+        return;
+    }
+
+    /*
+     * Draw all 9 lines from one family.
+     */
+    for (int i = 0; i < GRID_LINE_COUNT; i++) {
+
+        draw_grid_debug_line(
+            output,
+            &grid->rows[i]
+        );
+    }
+
+    /*
+     * Draw all 9 lines from the
+     * second family.
+     */
+    for (int i = 0; i < GRID_LINE_COUNT; i++) {
+
+        draw_grid_debug_line(
+            output,
+            &grid->cols[i]
+        );
+    }
+
+    /*
+     * Draw the four extreme
+     * intersections.
+     */
+    for (int i = 0; i < 4; i++) {
+
+        draw_grid_debug_corner(
+            output,
+            &grid->corners[i]
+        );
+    }
+
+    /*
+     * Draw detected board perimeter.
+     *
+     * We are using the current corner
+     * ordering here only for visualization.
+     * We will normalize TL/TR/BR/BL next.
+     */
+    draw_grid_segment(
+        output,
+        grid->corners[0],
+        grid->corners[1]
+    );
+
+    draw_grid_segment(
+        output,
+        grid->corners[1],
+        grid->corners[2]
+    );
+
+    draw_grid_segment(
+        output,
+        grid->corners[2],
+        grid->corners[3]
+    );
+
+    draw_grid_segment(
+        output,
+        grid->corners[3],
+        grid->corners[0]
+    );
+}
+
 static void sort_grid_centers(float *values)
 {
     for (int i = 0; i < GRID_LINE_COUNT - 1; i++) {
@@ -3060,6 +3425,88 @@ static int intersect_grid_lines(const grid_line_t *line1, const grid_line_t *lin
 
     return 1;
 }
+
+static void order_chess_grid_corners(chess_grid_t *grid)
+{
+    point_f_t original[4];
+
+    for (int i = 0; i < 4; i++) {
+        original[i] = grid->corners[i];
+    }
+
+    int tl_index = 0;
+    int tr_index = 0;
+    int br_index = 0;
+    int bl_index = 0;
+
+    float min_sum =
+        original[0].x + original[0].y;
+
+    float max_sum =
+        min_sum;
+
+    float min_diff =
+        original[0].x - original[0].y;
+
+    float max_diff =
+        min_diff;
+
+    for (int i = 1; i < 4; i++) {
+
+        float sum =
+            original[i].x +
+            original[i].y;
+
+        float diff =
+            original[i].x -
+            original[i].y;
+
+        /*
+         * x + y:
+         *
+         * smallest -> top-left
+         * largest  -> bottom-right
+         */
+        if (sum < min_sum) {
+            min_sum = sum;
+            tl_index = i;
+        }
+
+        if (sum > max_sum) {
+            max_sum = sum;
+            br_index = i;
+        }
+
+        /*
+         * x - y:
+         *
+         * largest  -> top-right
+         * smallest -> bottom-left
+         */
+        if (diff > max_diff) {
+            max_diff = diff;
+            tr_index = i;
+        }
+
+        if (diff < min_diff) {
+            min_diff = diff;
+            bl_index = i;
+        }
+    }
+
+    grid->corners[0] =
+        original[tl_index];
+
+    grid->corners[1] =
+        original[tr_index];
+
+    grid->corners[2] =
+        original[br_index];
+
+    grid->corners[3] =
+        original[bl_index];
+}
+
 static int detect_chess_grid(int corner_count, chess_grid_t *grid)
 {
     memset(
@@ -3278,7 +3725,191 @@ if (!cluster_grid_axis(projection_b, corner_count, centers_b, labels_b)) {
         }
     }
 
+    order_chess_grid_corners(grid);
+
     grid->valid = 1;
+
+    return 1;
+}
+
+static int compute_board_projective_map(const chess_grid_t *grid, projective_map_t *map)
+{
+    float x0 = grid->corners[0].x;
+    float y0 = grid->corners[0].y;
+
+    float x1 = grid->corners[1].x;
+    float y1 = grid->corners[1].y;
+
+    float x2 = grid->corners[2].x;
+    float y2 = grid->corners[2].y;
+
+    float x3 = grid->corners[3].x;
+    float y3 = grid->corners[3].y;
+
+    float dx1 = x1 - x2;
+    float dx2 = x3 - x2;
+    float dx3 = x0 - x1 + x2 - x3;
+
+    float dy1 = y1 - y2;
+    float dy2 = y3 - y2;
+    float dy3 = y0 - y1 + y2 - y3;
+
+    float denominator =
+        dx1 * dy2 -
+        dx2 * dy1;
+
+    if (fabsf(denominator) < 0.0001f) {
+        return 0;
+    }
+
+    map->g =
+        (dx3 * dy2 -
+         dx2 * dy3) /
+        denominator;
+
+    map->h =
+        (dx1 * dy3 -
+         dx3 * dy1) /
+        denominator;
+
+    map->a =
+        x1 - x0 +
+        map->g * x1;
+
+    map->b =
+        x3 - x0 +
+        map->h * x3;
+
+    map->c = x0;
+
+    map->d =
+        y1 - y0 +
+        map->g * y1;
+
+    map->e =
+        y3 - y0 +
+        map->h * y3;
+
+    map->f = y0;
+
+    return 1;
+}
+
+
+static int warp_chessboard(const uint8_t *source, uint8_t *destination, const chess_grid_t *grid)
+{
+    if (!grid->valid) {
+        return 0;
+    }
+
+    projective_map_t map;
+
+    if (!compute_board_projective_map(
+            grid,
+            &map)) {
+        return 0;
+    }
+
+    for (int y = 0; y < BOARD_WARP_SIZE; y++) {
+
+        float v =
+            (float)y /
+            (float)(BOARD_WARP_SIZE - 1);
+
+        for (int x = 0; x < BOARD_WARP_SIZE; x++) {
+
+            float u =
+                (float)x /
+                (float)(BOARD_WARP_SIZE - 1);
+
+            float denominator =
+                map.g * u +
+                map.h * v +
+                1.0f;
+
+            if (fabsf(denominator) < 0.0001f) {
+
+                destination[
+                    y * BOARD_WARP_SIZE + x
+                ] = 0;
+
+                continue;
+            }
+
+            float source_x = (map.a * u + map.b * v + map.c) / denominator;
+
+            float source_y = (map.d * u + map.e * v + map.f) / denominator;
+
+            if (source_x < 0.0f ||
+                source_x > (float)(IMG_WIDTH - 1) ||
+                source_y < 0.0f ||
+                source_y > (float)(IMG_HEIGHT - 1)) {
+
+                destination[
+                    y * BOARD_WARP_SIZE + x
+                ] = 0;
+
+                continue;
+            }
+
+            int x0 = (int)floorf(source_x);
+            int y0 = (int)floorf(source_y);
+
+            int x1 = x0 + 1;
+            int y1 = y0 + 1;
+
+            if (x1 >= IMG_WIDTH) {
+                x1 = IMG_WIDTH - 1;
+            }
+
+            if (y1 >= IMG_HEIGHT) {
+                y1 = IMG_HEIGHT - 1;
+            }
+
+            float fx =
+                source_x - (float)x0;
+
+            float fy =
+                source_y - (float)y0;
+
+            float p00 =
+                source[y0 * IMG_WIDTH + x0];
+
+            float p10 =
+                source[y0 * IMG_WIDTH + x1];
+
+            float p01 =
+                source[y1 * IMG_WIDTH + x0];
+
+            float p11 =
+                source[y1 * IMG_WIDTH + x1];
+
+            float top =
+                p00 +
+                fx * (p10 - p00);
+
+            float bottom =
+                p01 +
+                fx * (p11 - p01);
+
+            float value =
+                top +
+                fy * (bottom - top);
+
+            if (value < 0.0f) {
+                value = 0.0f;
+            }
+
+            if (value > 255.0f) {
+                value = 255.0f;
+            }
+
+            destination[
+                y * BOARD_WARP_SIZE + x
+            ] =
+                (uint8_t)(value + 0.5f);
+        }
+    }
 
     return 1;
 }
@@ -3287,8 +3918,18 @@ if (!cluster_grid_axis(projection_b, corner_count, centers_b, labels_b)) {
 
 static esp_err_t run_benchmark(const char *run_directory)
 {
+    /* ============================================================
+     * CSV FILE
+     * ============================================================ */
+
     char csv_path[128];
-    snprintf(csv_path, sizeof(csv_path), "%s/bench.csv", run_directory);
+
+    snprintf(
+        csv_path,
+        sizeof(csv_path),
+        "%s/bench.csv",
+        run_directory
+    );
 
     FILE *csv = fopen(csv_path, "w");
 
@@ -3297,53 +3938,208 @@ static esp_err_t run_benchmark(const char *run_directory)
         return ESP_FAIL;
     }
 
-    fprintf(csv, "frame,width,height,frame_bytes,capture_us,extract_y_us,gaussian_us,sobel_us,threshold_us,dsp_total_us,pipeline_us,hough_vote_us,hough_peak_us,hough_total_us,phase3a_algorithm_us,phase3a_pipeline_us,line_count,family_detect_us,phase3b_algorithm_us,phase3b_pipeline_us,family_a_theta_deg,family_b_theta_deg,family_a_count,family_b_count,free_internal_ram,free_psram\n");
+
+    /*
+     * CSV columns.
+     *
+     * The old Sobel/Hough pipeline is retained for comparison.
+     * The final selected chessboard-localization pipeline is:
+     *
+     * capture
+     *   -> Y extraction
+     *   -> Gaussian
+     *   -> Harris/grid
+     *   -> perspective warp
+     */
+    fprintf(
+        csv,
+
+        "frame,width,height,frame_bytes,"
+        "capture_us,"
+        "extract_y_us,"
+        "gaussian_us,"
+        "sobel_us,"
+        "threshold_us,"
+        "dsp_total_us,"
+        "pipeline_us,"
+        "hough_vote_us,"
+        "hough_peak_us,"
+        "hough_total_us,"
+        "phase3a_algorithm_us,"
+        "phase3a_pipeline_us,"
+        "line_count,"
+        "family_detect_us,"
+        "phase3b_algorithm_us,"
+        "phase3b_pipeline_us,"
+        "family_a_theta_deg,"
+        "family_b_theta_deg,"
+        "family_a_count,"
+        "family_b_count,"
+        "free_internal_ram,"
+        "free_psram,"
+        "chess_grid_us,"
+        "warp_us,"
+        "localization_algorithm_us,"
+        "localization_pipeline_us,"
+        "grid_found,"
+        "warp_ok\n"
+    );
+
     fflush(csv);
 
+
+    /* ============================================================
+     * CAMERA WARM-UP
+     * ============================================================ */
+
+    ESP_LOGI(
+        TAG,
+        "Camera warm-up: %d frames",
+        WARMUP_FRAMES
+    );
+
     for (int i = 0; i < WARMUP_FRAMES; i++) {
-        camera_fb_t *fb = esp_camera_fb_get();
+
+        camera_fb_t *fb =
+            esp_camera_fb_get();
 
         if (fb != NULL) {
             esp_camera_fb_return(fb);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(
+            pdMS_TO_TICKS(50)
+        );
     }
+
+
+    /* ============================================================
+     * ACCUMULATORS
+     * ============================================================ */
 
     uint64_t capture_total = 0;
     uint64_t extract_total = 0;
     uint64_t gaussian_total = 0;
     uint64_t sobel_total = 0;
     uint64_t threshold_total = 0;
+
     uint64_t dsp_total = 0;
     uint64_t pipeline_total = 0;
+
+    uint64_t chess_grid_total = 0;
+    uint64_t warp_total = 0;
+
+    uint64_t localization_algorithm_total = 0;
+    uint64_t localization_pipeline_total = 0;
+
+
+    /* ------------------------------------------------------------
+     * Min/max timing
+     * ------------------------------------------------------------ */
 
     int64_t capture_min = INT64_MAX;
     int64_t capture_max = 0;
 
+    int64_t chess_grid_min = INT64_MAX;
+    int64_t chess_grid_max = 0;
+
+    int64_t warp_min = INT64_MAX;
+    int64_t warp_max = 0;
+
+    int64_t localization_min = INT64_MAX;
+    int64_t localization_max = 0;
+
+
+    /* ------------------------------------------------------------
+     * Counters
+     * ------------------------------------------------------------ */
+
     int successful_frames = 0;
     int saved_images = 0;
+
+    int grid_success_count = 0;
+    int warp_success_count = 0;
+
+
+    /* ------------------------------------------------------------
+     * Reset Hough-family tracking
+     * ------------------------------------------------------------ */
 
     tracked_family_a_theta = -1;
     tracked_family_b_theta = -1;
     family_track_misses = 0;
 
+
+    /* ============================================================
+     * BENCHMARK LOOP
+     * ============================================================ */
+
     for (int frame = 1; frame <= TEST_FRAMES; frame++) {
-        int64_t capture_start = esp_timer_get_time();
-        camera_fb_t *fb = esp_camera_fb_get();
-        int64_t capture_end = esp_timer_get_time();
+
+
+        /* ========================================================
+         * CAMERA CAPTURE
+         * ======================================================== */
+
+        int64_t capture_start =
+            esp_timer_get_time();
+
+        camera_fb_t *fb =
+            esp_camera_fb_get();
+
+        int64_t capture_end =
+            esp_timer_get_time();
+
 
         if (fb == NULL) {
-            fprintf(csv, "%d,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0\n", frame);
+
+            ESP_LOGE(
+                TAG,
+                "Camera capture failed frame=%d",
+                frame
+            );
+
+            /*
+             * bench.csv contains 32 columns.
+             *
+             * Write:
+             * frame,width,height,bytes,capture
+             *
+             * then fill the remaining 27 columns with zero.
+             */
+            fprintf(
+                csv,
+                "%d,0,0,0,-1",
+                frame
+            );
+
+            for (int column = 5; column < 32; column++) {
+
+                fprintf(csv, ",0");
+            }
+
+            fprintf(csv, "\n");
+
             fflush(csv);
+
             continue;
         }
 
-        unsigned int frame_width = fb->width;
-        unsigned int frame_height = fb->height;
-        unsigned int frame_bytes = fb->len;
 
-        int64_t capture_us = capture_end - capture_start;
+        unsigned int frame_width =
+            fb->width;
+
+        unsigned int frame_height =
+            fb->height;
+
+        unsigned int frame_bytes =
+            fb->len;
+
+
+        int64_t capture_us =
+            capture_end -
+            capture_start;
+
 
         if (capture_us < capture_min) {
             capture_min = capture_us;
@@ -3353,35 +4149,131 @@ static esp_err_t run_benchmark(const char *run_directory)
             capture_max = capture_us;
         }
 
-        if (frame_width != IMG_WIDTH || frame_height != IMG_HEIGHT || frame_bytes < IMG_PIXELS * 2) {
-            ESP_LOGE(TAG, "Unexpected frame: %ux%u, %u bytes", frame_width, frame_height, frame_bytes);
+
+        /* --------------------------------------------------------
+         * Verify expected YUV422 QQVGA frame.
+         * -------------------------------------------------------- */
+
+        if (frame_width != IMG_WIDTH ||
+            frame_height != IMG_HEIGHT ||
+            frame_bytes < IMG_PIXELS * 2) {
+
+            ESP_LOGE(
+                TAG,
+                "Unexpected frame: %ux%u, %u bytes",
+                frame_width,
+                frame_height,
+                frame_bytes
+            );
+
+
+            /*
+             * Preserve the failed frame in the CSV.
+             */
+            fprintf(
+                csv,
+                "%d,%u,%u,%u,%lld",
+                frame,
+                frame_width,
+                frame_height,
+                frame_bytes,
+                (long long)capture_us
+            );
+
+            for (int column = 5; column < 32; column++) {
+
+                fprintf(csv, ",0");
+            }
+
+            fprintf(csv, "\n");
+
+            fflush(csv);
+
             esp_camera_fb_return(fb);
+
             continue;
         }
 
-        int64_t t_extract_start = esp_timer_get_time();
-        extract_y_channel(fb, gray_buffer);
-        int64_t t_extract_end = esp_timer_get_time();
 
+        /* ========================================================
+         * Y-CHANNEL EXTRACTION
+         * ======================================================== */
+
+        int64_t t_extract_start =
+            esp_timer_get_time();
+
+        extract_y_channel(
+            fb,
+            gray_buffer
+        );
+
+        int64_t t_extract_end =
+            esp_timer_get_time();
+
+
+        /*
+         * Return camera framebuffer as early as possible.
+         *
+         * This allows the camera driver to continue acquiring
+         * the next frame while DSP processing is performed.
+         */
         esp_camera_fb_return(fb);
         fb = NULL;
 
-        int64_t t_gaussian_start = esp_timer_get_time();
-        gaussian_3x3(gray_buffer, blur_buffer);
-        int64_t t_gaussian_end = esp_timer_get_time();
 
-        int64_t t_sobel_start = esp_timer_get_time();
-        sobel_filter(blur_buffer, gradient_buffer);
-        int64_t t_sobel_end = esp_timer_get_time();
+        /* ========================================================
+         * GAUSSIAN FILTER
+         * ======================================================== */
 
-        int64_t t_threshold_start = esp_timer_get_time();
+        int64_t t_gaussian_start =
+            esp_timer_get_time();
 
-        threshold_edges(gradient_buffer, edge_buffer);
+        gaussian_3x3(
+            gray_buffer,
+            blur_buffer
+        );
 
-        int64_t t_threshold_end = esp_timer_get_time();
+        int64_t t_gaussian_end =
+            esp_timer_get_time();
 
 
-        int64_t t_roi_start = esp_timer_get_time();
+        /* ========================================================
+         * LEGACY SOBEL / EDGE PIPELINE
+         *
+         * Retained for algorithm comparison and debug images.
+         * It is NOT part of final Harris-based localization timing.
+         * ======================================================== */
+
+        int64_t t_sobel_start =
+            esp_timer_get_time();
+
+        sobel_filter(
+            blur_buffer,
+            gradient_buffer
+        );
+
+        int64_t t_sobel_end =
+            esp_timer_get_time();
+
+
+        int64_t t_threshold_start =
+            esp_timer_get_time();
+
+        threshold_edges(
+            gradient_buffer,
+            edge_buffer
+        );
+
+        int64_t t_threshold_end =
+            esp_timer_get_time();
+
+
+        /* ========================================================
+         * LEGACY ROI DETECTION
+         * ======================================================== */
+
+        int64_t t_roi_start =
+            esp_timer_get_time();
 
         edge_roi_t board_roi;
 
@@ -3390,116 +4282,166 @@ static esp_err_t run_benchmark(const char *run_directory)
             &board_roi
         );
 
-        int64_t t_roi_end = esp_timer_get_time();
+        int64_t t_roi_end =
+            esp_timer_get_time();
 
 
-        /* Chessboard-specific corner detector */
-        int64_t t_chess_corner_start = esp_timer_get_time();
+        /* ========================================================
+         * FINAL HARRIS / GRID LOCALIZATION
+         * ======================================================== */
 
+        int64_t t_chess_corner_start =
+            esp_timer_get_time();
+
+
+        /*
+         * Compute Harris response from Gaussian-smoothed image.
+         */
         compute_harris_response(
             blur_buffer,
             line_buffer
         );
 
+
+        /*
+         * Non-maximum suppression and candidate extraction.
+         */
         int chess_corner_count =
             find_chess_corners(
-            line_buffer
-        );
+                line_buffer
+            );
 
+
+        /*
+         * Recover the complete 9x9 chessboard lattice.
+         */
         int grid_found =
             detect_chess_grid(
                 chess_corner_count,
                 &detected_grid
             );
 
+
+        int64_t t_chess_corner_end =
+            esp_timer_get_time();
+
+
+        int64_t chess_corner_us =
+            t_chess_corner_end -
+            t_chess_corner_start;
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Logging is outside the timer so UART output does not
+         * contaminate Harris/grid measurements.
+         */
+        ESP_LOGI(
+            TAG,
+            "HARRIS frame=%d corners=%d time=%.3f ms",
+            frame,
+            chess_corner_count,
+            chess_corner_us / 1000.0
+        );
+
+
         if (grid_found) {
 
-            ESP_LOGI(TAG,
-                "GRID FOUND TL=(%.1f,%.1f) TR=(%.1f,%.1f) "
-                "BR=(%.1f,%.1f) BL=(%.1f,%.1f)",
+            ESP_LOGI(
+                TAG,
+
+                "GRID FOUND "
+                "TL=(%.1f,%.1f) "
+                "TR=(%.1f,%.1f) "
+                "BR=(%.1f,%.1f) "
+                "BL=(%.1f,%.1f)",
+
                 detected_grid.corners[0].x,
                 detected_grid.corners[0].y,
+
                 detected_grid.corners[1].x,
                 detected_grid.corners[1].y,
+
                 detected_grid.corners[2].x,
                 detected_grid.corners[2].y,
+
                 detected_grid.corners[3].x,
                 detected_grid.corners[3].y
             );
-        }
-        else {
-            ESP_LOGW(TAG,
+
+        } else {
+
+            ESP_LOGW(
+                TAG,
                 "GRID NOT FOUND frame=%d",
                 frame
             );
-}
+        }
 
-        ESP_LOGI(TAG,
-            "HARRIS frame=%d corners=%d",
-            frame,
-            chess_corner_count
-        );
 
-        static bool harris_points_dumped = false;
+        /* ========================================================
+         * FINAL PERSPECTIVE CORRECTION
+         * ======================================================== */
 
-        if (!harris_points_dumped &&
-            chess_corner_count >= 50) {
+        int64_t t_warp_start =
+            esp_timer_get_time();
 
-            ESP_LOGI(TAG,
-                "HARRIS_POINTS_BEGIN frame=%d count=%d",
-                frame,
-                chess_corner_count
-            );
 
-            for (int i = 0; i < chess_corner_count; i++) {
-                ESP_LOGI(TAG,
-                    "HC,%d,%d,%d,%u",
-                    i,
-                    chess_corners[i].x,
-                    chess_corners[i].y,
-                    (unsigned)chess_corners[i].score
+        int warp_ok = 0;
+
+
+        if (grid_found) {
+
+            warp_ok =
+                warp_chessboard(
+                    gray_buffer,
+                    board_warp_buffer,
+                    &detected_grid
                 );
-            }
-
-            ESP_LOGI(TAG, "HARRIS_POINTS_END");
-
-            harris_points_dumped = true;
-}
-
-        int64_t t_chess_corner_end = esp_timer_get_time();
-
-        int64_t chess_corner_us = t_chess_corner_end - t_chess_corner_start;
-
-        (void)chess_corner_us;
+        }
 
 
-        /* Existing Hough processing */
-        int64_t t_hough_vote_start = esp_timer_get_time();
+        int64_t t_warp_end =
+            esp_timer_get_time();
+
+
+        int64_t warp_us =
+            t_warp_end -
+            t_warp_start;
+
+
+        /* ========================================================
+         * LEGACY HOUGH COMPARISON PIPELINE
+         * ======================================================== */
+
+        int64_t t_hough_vote_start =
+            esp_timer_get_time();
+
 
         hough_vote_masked(
             edge_buffer
         );
 
-        int64_t t_hough_vote_end = esp_timer_get_time();
 
-        int64_t t_family_start = esp_timer_get_time();
+        int64_t t_hough_vote_end =
+            esp_timer_get_time();
+
+
+        /* --------------------------------------------------------
+         * Detect two dominant Hough line families.
+         * -------------------------------------------------------- */
+
+        int64_t t_family_start =
+            esp_timer_get_time();
+
 
         int family_a_theta = -1;
         int family_b_theta = -1;
+
         int family_a_count = 0;
         int family_b_count = 0;
 
-        ESP_LOGI(TAG,
-            "TRACK IN frame=%d A=%d B=%d misses=%d",
-            frame,
-            tracked_family_a_theta >= 0
-            ? tracked_family_a_theta * HOUGH_THETA_STEP_DEG
-            : -1,
-            tracked_family_b_theta >= 0
-            ? tracked_family_b_theta * HOUGH_THETA_STEP_DEG
-            : -1,
-            family_track_misses
-        );
 
         detect_hough_families(
             &family_a_theta,
@@ -3508,246 +4450,1067 @@ static esp_err_t run_benchmark(const char *run_directory)
             &family_b_count
         );
 
-        ESP_LOGI(TAG,
-            "TRACK OUT frame=%d A=%d B=%d Acount=%d Bcount=%d misses=%d",
-            frame,
-            family_a_theta >= 0
-            ? family_a_theta * HOUGH_THETA_STEP_DEG
-            : -1,
-            family_b_theta >= 0
-            ? family_b_theta * HOUGH_THETA_STEP_DEG
-            : -1,
-            family_a_count,
-            family_b_count,
-            family_track_misses
-        );
 
-        int64_t t_family_end = esp_timer_get_time();
+        int64_t t_family_end =
+            esp_timer_get_time();
 
-        int64_t t_corner_start = esp_timer_get_time();
 
-        board_detection_t board;
+        /* --------------------------------------------------------
+         * Legacy board outline.
+         * -------------------------------------------------------- */
 
-        int board_found = detect_board_corners(
-            family_a_theta,
-            family_b_theta,
-            family_a_count,
-            family_b_count,
-        &board
-        );
+        board_detection_t board = {0};
 
-        int64_t t_corner_end = esp_timer_get_time();
+
+        int board_found =
+            detect_board_corners(
+                family_a_theta,
+                family_b_theta,
+                family_a_count,
+                family_b_count,
+                &board
+            );
+
 
         if (board_found) {
-            ESP_LOGI(TAG, "BOARD frame=%d corners=(%.1f,%.1f) (%.1f,%.1f) (%.1f,%.1f) (%.1f,%.1f)",
+
+            ESP_LOGI(
+                TAG,
+
+                "HOUGH BOARD "
+                "frame=%d "
+                "corners="
+                "(%.1f,%.1f) "
+                "(%.1f,%.1f) "
+                "(%.1f,%.1f) "
+                "(%.1f,%.1f)",
+
                 frame,
-                board.corner[0].x, board.corner[0].y,
-                board.corner[1].x, board.corner[1].y,
-                board.corner[2].x, board.corner[2].y,
-                board.corner[3].x, board.corner[3].y
+
+                board.corner[0].x,
+                board.corner[0].y,
+
+                board.corner[1].x,
+                board.corner[1].y,
+
+                board.corner[2].x,
+                board.corner[2].y,
+
+                board.corner[3].x,
+                board.corner[3].y
             );
-}
-
-        int64_t t_hough_peak_start = esp_timer_get_time();
-
-        int line_count = find_hough_lines();
-
-        int64_t t_hough_peak_end = esp_timer_get_time();
+        }
 
 
-        int64_t extract_us = t_extract_end - t_extract_start;
-        int64_t gaussian_us = t_gaussian_end - t_gaussian_start;
-        int64_t sobel_us = t_sobel_end - t_sobel_start;
-        int64_t threshold_us = t_threshold_end - t_threshold_start;
+        /* --------------------------------------------------------
+         * Hough peak extraction.
+         * -------------------------------------------------------- */
 
-        int64_t roi_detect_us = t_roi_end - t_roi_start;
-
-        int64_t dsp_total_us = extract_us + gaussian_us + sobel_us + threshold_us;
-        int64_t pipeline_us = capture_us + dsp_total_us;
-
-        int64_t hough_vote_us = t_hough_vote_end - t_hough_vote_start;
-        int64_t hough_peak_us = t_hough_peak_end - t_hough_peak_start;
-        int64_t hough_total_us = hough_vote_us + hough_peak_us;
-
-        int64_t phase3a_algorithm_us = dsp_total_us + hough_total_us;
-        int64_t phase3a_pipeline_us = capture_us + phase3a_algorithm_us;
-
-        int64_t family_detect_us = t_family_end - t_family_start;
-
-        int64_t corner_detect_us = t_corner_end - t_corner_start;
-
-        int64_t phase3c_algorithm_us = dsp_total_us + roi_detect_us + hough_vote_us + family_detect_us + corner_detect_us;
-
-        int64_t phase3c_pipeline_us = capture_us + phase3c_algorithm_us;
-        int64_t phase3b_algorithm_us = dsp_total_us + roi_detect_us + hough_vote_us + family_detect_us;
-        int64_t phase3b_pipeline_us = capture_us + phase3b_algorithm_us;
+        int64_t t_hough_peak_start =
+            esp_timer_get_time();
 
 
-        capture_total += capture_us;
-        extract_total += extract_us;
-        gaussian_total += gaussian_us;
-        sobel_total += sobel_us;
-        threshold_total += threshold_us;
-        dsp_total += dsp_total_us;
-        pipeline_total += pipeline_us;
+        int line_count =
+            find_hough_lines();
+
+
+        int64_t t_hough_peak_end =
+            esp_timer_get_time();
+
+
+        /* ========================================================
+         * TIMING CALCULATIONS
+         * ======================================================== */
+
+        int64_t extract_us =
+            t_extract_end -
+            t_extract_start;
+
+
+        int64_t gaussian_us =
+            t_gaussian_end -
+            t_gaussian_start;
+
+
+        int64_t sobel_us =
+            t_sobel_end -
+            t_sobel_start;
+
+
+        int64_t threshold_us =
+            t_threshold_end -
+            t_threshold_start;
+
+
+        int64_t roi_detect_us =
+            t_roi_end -
+            t_roi_start;
+
+
+        /*
+         * Original basic DSP pipeline.
+         */
+        int64_t dsp_total_us =
+            extract_us +
+            gaussian_us +
+            sobel_us +
+            threshold_us;
+
+
+        int64_t pipeline_us =
+            capture_us +
+            dsp_total_us;
+
+
+        /*
+         * Hough timing.
+         */
+        int64_t hough_vote_us =
+            t_hough_vote_end -
+            t_hough_vote_start;
+
+
+        int64_t hough_peak_us =
+            t_hough_peak_end -
+            t_hough_peak_start;
+
+
+        int64_t hough_total_us =
+            hough_vote_us +
+            hough_peak_us;
+
+
+        /*
+         * Historical Phase 3A:
+         *
+         * Basic DSP + global Hough.
+         */
+        int64_t phase3a_algorithm_us =
+            dsp_total_us +
+            hough_total_us;
+
+
+        int64_t phase3a_pipeline_us =
+            capture_us +
+            phase3a_algorithm_us;
+
+
+        /*
+         * Hough family detection.
+         */
+        int64_t family_detect_us =
+            t_family_end -
+            t_family_start;
+
+
+        /*
+         * Historical Phase 3B:
+         *
+         * DSP + ROI + Hough vote + family detection.
+         */
+        int64_t phase3b_algorithm_us =
+            dsp_total_us +
+            roi_detect_us +
+            hough_vote_us +
+            family_detect_us;
+
+
+        int64_t phase3b_pipeline_us =
+            capture_us +
+            phase3b_algorithm_us;
+
+
+        /*
+         * --------------------------------------------------------
+         * FINAL SELECTED LOCALIZATION PIPELINE
+         * --------------------------------------------------------
+         *
+         * Only the stages required by the final Harris/grid
+         * implementation are included.
+         *
+         * Sobel, threshold, ROI and Hough are NOT required.
+         */
+        int64_t localization_algorithm_us =
+            extract_us +
+            gaussian_us +
+            chess_corner_us +
+            warp_us;
+
+
+        int64_t localization_pipeline_us =
+            capture_us +
+            localization_algorithm_us;
+
+
+        /* ========================================================
+         * UPDATE TOTALS
+         * ======================================================== */
+
+        capture_total +=
+            capture_us;
+
+        extract_total +=
+            extract_us;
+
+        gaussian_total +=
+            gaussian_us;
+
+        sobel_total +=
+            sobel_us;
+
+        threshold_total +=
+            threshold_us;
+
+        dsp_total +=
+            dsp_total_us;
+
+        pipeline_total +=
+            pipeline_us;
+
+
+        chess_grid_total +=
+            chess_corner_us;
+
+
+        localization_algorithm_total +=
+            localization_algorithm_us;
+
+
+        localization_pipeline_total +=
+            localization_pipeline_us;
+
+
+        /* --------------------------------------------------------
+         * Harris/grid min/max.
+         * -------------------------------------------------------- */
+
+        if (chess_corner_us < chess_grid_min) {
+            chess_grid_min =
+                chess_corner_us;
+        }
+
+        if (chess_corner_us > chess_grid_max) {
+            chess_grid_max =
+                chess_corner_us;
+        }
+
+
+        /* --------------------------------------------------------
+         * Final localization min/max.
+         * -------------------------------------------------------- */
+
+        if (localization_algorithm_us <
+            localization_min) {
+
+            localization_min =
+                localization_algorithm_us;
+        }
+
+
+        if (localization_algorithm_us >
+            localization_max) {
+
+            localization_max =
+                localization_algorithm_us;
+        }
+
+
+        /* --------------------------------------------------------
+         * Detection success counts.
+         * -------------------------------------------------------- */
+
+        if (grid_found) {
+
+            grid_success_count++;
+        }
+
+
+        if (warp_ok) {
+
+            warp_success_count++;
+
+            warp_total +=
+                warp_us;
+
+
+            if (warp_us < warp_min) {
+
+                warp_min =
+                    warp_us;
+            }
+
+
+            if (warp_us > warp_max) {
+
+                warp_max =
+                    warp_us;
+            }
+        }
+
 
         successful_frames++;
 
 
-        size_t free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        /* ========================================================
+         * MEMORY MEASUREMENT
+         * ======================================================== */
 
-        size_t free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        size_t free_internal =
+            heap_caps_get_free_size(
+                MALLOC_CAP_INTERNAL |
+                MALLOC_CAP_8BIT
+            );
 
-        fprintf(csv, "%d,%u,%u,%u,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%d,%lld,%lld,%lld,%d,%d,%d,%d,%u,%u\n",
+
+        size_t free_psram =
+            heap_caps_get_free_size(
+                MALLOC_CAP_SPIRAM
+            );
+
+
+        /* ========================================================
+         * WRITE CSV ROW
+         * ======================================================== */
+
+        fprintf(
+            csv,
+
+            "%d,%u,%u,%u,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%d,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%d,"
+            "%d,"
+            "%d,"
+            "%d,"
+            "%u,"
+            "%u,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%lld,"
+            "%d,"
+            "%d\n",
+
             frame,
+
             frame_width,
             frame_height,
             frame_bytes,
+
             (long long)capture_us,
+
             (long long)extract_us,
+
             (long long)gaussian_us,
+
             (long long)sobel_us,
+
             (long long)threshold_us,
+
             (long long)dsp_total_us,
+
             (long long)pipeline_us,
+
             (long long)hough_vote_us,
+
             (long long)hough_peak_us,
+
             (long long)hough_total_us,
+
             (long long)phase3a_algorithm_us,
+
             (long long)phase3a_pipeline_us,
+
             line_count,
+
             (long long)family_detect_us,
+
             (long long)phase3b_algorithm_us,
+
             (long long)phase3b_pipeline_us,
-            family_a_theta * HOUGH_THETA_STEP_DEG,
-            family_b_theta * HOUGH_THETA_STEP_DEG,
+
+            family_a_theta >= 0
+                ? family_a_theta *
+                HOUGH_THETA_STEP_DEG
+                : -1,
+
+            family_b_theta >= 0
+                ? family_b_theta *
+                HOUGH_THETA_STEP_DEG
+                : -1,
+
             family_a_count,
             family_b_count,
-            (unsigned)free_internal,
-            (unsigned)free_psram
-            );
 
-fflush(csv);
+            (unsigned)free_internal,
+
+            (unsigned)free_psram,
+
+            (long long)chess_corner_us,
+
+            (long long)warp_us,
+
+            (long long)localization_algorithm_us,
+
+            (long long)localization_pipeline_us,
+
+            grid_found,
+
+            warp_ok
+        );
+
 
         fflush(csv);
 
+
+        /* ========================================================
+         * SAVE DIAGNOSTIC IMAGES
+         *
+         * Image saving is OUTSIDE all algorithm timers.
+         * ======================================================== */
+
         if ((frame % SAVE_EVERY_N) == 0) {
-            if (save_gray_pgm(run_directory, "Y", frame, gray_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+
+
+            /* ----------------------------------------------------
+             * Y = luminance
+             * ---------------------------------------------------- */
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "Y",
+                    frame,
+                    gray_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            if (save_gray_pgm(run_directory, "G", frame, blur_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+
+            /* ----------------------------------------------------
+             * G = Gaussian
+             * ---------------------------------------------------- */
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "G",
+                    frame,
+                    blur_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            if (save_gray_pgm(run_directory, "M", frame, gradient_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+
+            /* ----------------------------------------------------
+             * M = Sobel magnitude
+             * ---------------------------------------------------- */
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "M",
+                    frame,
+                    gradient_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            if (save_gray_pgm(run_directory, "E", frame, edge_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+
+            /* ----------------------------------------------------
+             * E = thresholded edges
+             * ---------------------------------------------------- */
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "E",
+                    frame,
+                    edge_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            render_roi(&board_roi);
 
-            if (save_gray_pgm(run_directory, "R", frame, line_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+            /* ----------------------------------------------------
+             * R = legacy ROI
+             * ---------------------------------------------------- */
+
+            render_roi(
+                &board_roi
+            );
+
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "R",
+                    frame,
+                    line_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            render_hough_lines(line_count);
 
-            if (save_gray_pgm(run_directory, "L", frame, line_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
+            /* ----------------------------------------------------
+             * L = Hough lines
+             * ---------------------------------------------------- */
+
+            render_hough_lines(
+                line_count
+            );
+
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "L",
+                    frame,
+                    line_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
                 saved_images++;
             }
 
-            render_hough_families(family_a_count, family_b_count);
 
-            if (save_gray_pgm(run_directory, "C", frame, line_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
-            saved_images++;
+            /* ----------------------------------------------------
+             * C = Hough line families
+             * ---------------------------------------------------- */
+
+            render_hough_families(
+                family_a_count,
+                family_b_count
+            );
+
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "C",
+                    frame,
+                    line_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
+                saved_images++;
             }
 
-            render_board_outline(&board);
 
-            if (save_gray_pgm(run_directory, "B", frame, line_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
-            saved_images++;
+            /* ----------------------------------------------------
+             * B = legacy Hough board outline
+             * ---------------------------------------------------- */
+
+            if (board_found) {
+
+                render_board_outline(
+                    &board
+                );
+
+
+                if (save_gray_pgm(
+                        run_directory,
+                        "B",
+                        frame,
+                        line_buffer,
+                        IMG_WIDTH,
+                        IMG_HEIGHT) == ESP_OK) {
+
+                    saved_images++;
+                }
             }
 
-            render_chess_corners(chess_corner_count);
 
-            if (save_gray_pgm(run_directory, "X", frame, line_buffer, IMG_WIDTH, IMG_HEIGHT) == ESP_OK) {
-            saved_images++;
+            /* ----------------------------------------------------
+             * X = Harris corner candidates
+             * ---------------------------------------------------- */
+
+            render_chess_corners(
+                chess_corner_count
+            );
+
+
+            if (save_gray_pgm(
+                    run_directory,
+                    "X",
+                    frame,
+                    line_buffer,
+                    IMG_WIDTH,
+                    IMG_HEIGHT) == ESP_OK) {
+
+                saved_images++;
+            }
+
+
+            /* ----------------------------------------------------
+             * Q = final detected 9x9 grid
+             * ---------------------------------------------------- */
+
+            if (grid_found) {
+
+                render_chess_grid_debug(
+                    &detected_grid,
+                    line_buffer
+                );
+
+
+                if (save_gray_pgm(
+                        run_directory,
+                        "Q",
+                        frame,
+                        line_buffer,
+                        IMG_WIDTH,
+                        IMG_HEIGHT) == ESP_OK) {
+
+                    saved_images++;
+                }
+            }
+
+
+            /* ----------------------------------------------------
+             * W = perspective-normalized chessboard
+             *
+             * IMPORTANT:
+             * warp_chessboard() was already executed earlier.
+             * We only SAVE its result here.
+             * ---------------------------------------------------- */
+
+            if (warp_ok) {
+
+                if (save_gray_pgm(
+                        run_directory,
+                        "W",
+                        frame,
+                        board_warp_buffer,
+                        BOARD_WARP_SIZE,
+                        BOARD_WARP_SIZE) == ESP_OK) {
+
+                    saved_images++;
+                }
             }
         }
     }
 
+
+    /* ============================================================
+     * CLOSE CSV
+     * ============================================================ */
+
     fclose(csv);
 
-    char summary_path[128];
-    snprintf(summary_path, sizeof(summary_path), "%s/summary.txt", run_directory);
 
-    FILE *summary = fopen(summary_path, "w");
+    /* ============================================================
+     * SUMMARY FILE
+     * ============================================================ */
+
+    char summary_path[128];
+
+    snprintf(
+        summary_path,
+        sizeof(summary_path),
+        "%s/summary.txt",
+        run_directory
+    );
+
+
+    FILE *summary =
+        fopen(
+            summary_path,
+            "w"
+        );
+
 
     if (summary != NULL) {
+
+
+        /* --------------------------------------------------------
+         * Average values
+         * -------------------------------------------------------- */
+
         double average_capture_ms = 0.0;
+
         double average_extract_ms = 0.0;
         double average_gaussian_ms = 0.0;
+
         double average_sobel_ms = 0.0;
         double average_threshold_ms = 0.0;
+
         double average_dsp_ms = 0.0;
-        double average_pipeline_ms = 0.0;
+        double average_basic_pipeline_ms = 0.0;
+
+        double average_chess_grid_ms = 0.0;
+        double average_warp_ms = 0.0;
+
+        double average_localization_ms = 0.0;
+
+        double average_localization_pipeline_ms =
+            0.0;
+
+        double localization_fps = 0.0;
+
 
         if (successful_frames > 0) {
-            average_capture_ms = ((double)capture_total / successful_frames) / 1000.0;
-            average_extract_ms = ((double)extract_total / successful_frames) / 1000.0;
-            average_gaussian_ms = ((double)gaussian_total / successful_frames) / 1000.0;
-            average_sobel_ms = ((double)sobel_total / successful_frames) / 1000.0;
-            average_threshold_ms = ((double)threshold_total / successful_frames) / 1000.0;
-            average_dsp_ms = ((double)dsp_total / successful_frames) / 1000.0;
-            average_pipeline_ms = ((double)pipeline_total / successful_frames) / 1000.0;
+
+
+            average_capture_ms =
+                (
+                    (double)capture_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_extract_ms =
+                (
+                    (double)extract_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_gaussian_ms =
+                (
+                    (double)gaussian_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_sobel_ms =
+                (
+                    (double)sobel_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_threshold_ms =
+                (
+                    (double)threshold_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_dsp_ms =
+                (
+                    (double)dsp_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_basic_pipeline_ms =
+                (
+                    (double)pipeline_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_chess_grid_ms =
+                (
+                    (double)chess_grid_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_localization_ms =
+                (
+                    (double)localization_algorithm_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            average_localization_pipeline_ms =
+                (
+                    (double)localization_pipeline_total /
+                    successful_frames
+                ) /
+                1000.0;
+
+
+            if (average_localization_ms > 0.0) {
+
+                localization_fps =
+                    1000.0 /
+                    average_localization_ms;
+            }
         }
 
-        fprintf(summary,
-            "ESP32-CAM Phase 2 DSP Benchmark\n"
-            "================================\n"
+
+        /*
+         * Perspective-warp average is calculated only over
+         * successful warps.
+         */
+        if (warp_success_count > 0) {
+
+            average_warp_ms =
+                (
+                    (double)warp_total /
+                    warp_success_count
+                ) /
+                1000.0;
+        }
+
+
+        /* --------------------------------------------------------
+         * Success percentages
+         * -------------------------------------------------------- */
+
+        double grid_success_percent =
+            successful_frames > 0
+                ? (
+                    100.0 *
+                    (double)grid_success_count /
+                    successful_frames
+                )
+                : 0.0;
+
+
+        double warp_success_percent =
+            successful_frames > 0
+                ? (
+                    100.0 *
+                    (double)warp_success_count /
+                    successful_frames
+                )
+                : 0.0;
+
+
+        /* --------------------------------------------------------
+         * Write summary
+         * -------------------------------------------------------- */
+
+        fprintf(
+            summary,
+
+            "ESP32-CAM FINAL CHESSBOARD LOCALIZATION BENCHMARK\n"
+            "================================================\n"
             "\n"
+
+            "CONFIGURATION\n"
+            "-------------\n"
+            "Camera: OV2640\n"
+            "Processor: ESP32 Xtensa LX6\n"
+            "CPU frequency: 240 MHz\n"
+            "Flash: 4 MB\n"
+            "PSRAM: 2 MB\n"
+            "Pixel format: YUV422\n"
+            "Input resolution: %dx%d\n"
+            "Normalized board: %dx%d\n"
+            "Pixels per chess square: %dx%d\n"
+            "\n"
+
+            "TEST\n"
+            "----\n"
+            "Warm-up frames: %d\n"
             "Frames requested: %d\n"
             "Frames captured: %d\n"
             "Diagnostic images saved: %d\n"
             "\n"
-            "Average capture time: %.3f ms\n"
-            "Minimum capture time: %.3f ms\n"
-            "Maximum capture time: %.3f ms\n"
+
+            "FINAL LOCALIZATION SUCCESS\n"
+            "--------------------------\n"
+            "Grid detections: %d/%d (%.2f%%)\n"
+            "Perspective warps: %d/%d (%.2f%%)\n"
             "\n"
+
+            "FINAL LOCALIZATION TIMING\n"
+            "-------------------------\n"
             "Average Y extraction: %.3f ms\n"
             "Average Gaussian 3x3: %.3f ms\n"
+            "\n"
+
+            "Average Harris + grid: %.3f ms\n"
+            "Minimum Harris + grid: %.3f ms\n"
+            "Maximum Harris + grid: %.3f ms\n"
+            "\n"
+
+            "Average perspective warp: %.3f ms\n"
+            "Minimum perspective warp: %.3f ms\n"
+            "Maximum perspective warp: %.3f ms\n"
+            "\n"
+
+            "Average localization algorithm: %.3f ms\n"
+            "Minimum localization algorithm: %.3f ms\n"
+            "Maximum localization algorithm: %.3f ms\n"
+            "\n"
+
+            "Average capture + localization: %.3f ms\n"
+            "Effective localization rate: %.3f FPS\n"
+            "\n"
+
+            "CAMERA CAPTURE\n"
+            "--------------\n"
+            "Average framebuffer wait: %.3f ms\n"
+            "Minimum framebuffer wait: %.3f ms\n"
+            "Maximum framebuffer wait: %.3f ms\n"
+            "\n"
+
+            "LEGACY DSP COMPARISON\n"
+            "---------------------\n"
             "Average Sobel: %.3f ms\n"
             "Average threshold: %.3f ms\n"
-            "Average DSP total: %.3f ms\n"
-            "Average pipeline total: %.3f ms\n"
+            "Average basic DSP total: %.3f ms\n"
+            "Average capture + basic DSP: %.3f ms\n"
             "\n"
-            "Result: %s\n",
+
+            "RESULT: %s\n",
+
+            IMG_WIDTH,
+            IMG_HEIGHT,
+
+            BOARD_WARP_SIZE,
+            BOARD_WARP_SIZE,
+
+            BOARD_WARP_SIZE / 8,
+            BOARD_WARP_SIZE / 8,
+
+            WARMUP_FRAMES,
+
             TEST_FRAMES,
+
             successful_frames,
+
             saved_images,
-            average_capture_ms,
-            successful_frames > 0 ? capture_min / 1000.0 : 0.0,
-            successful_frames > 0 ? capture_max / 1000.0 : 0.0,
+
+            grid_success_count,
+
+            successful_frames,
+
+            grid_success_percent,
+
+            warp_success_count,
+
+            successful_frames,
+
+            warp_success_percent,
+
             average_extract_ms,
+
             average_gaussian_ms,
+
+            average_chess_grid_ms,
+
+            chess_grid_min != INT64_MAX
+                ? chess_grid_min / 1000.0
+                : 0.0,
+
+            chess_grid_max / 1000.0,
+
+            average_warp_ms,
+
+            warp_min != INT64_MAX
+                ? warp_min / 1000.0
+                : 0.0,
+
+            warp_max / 1000.0,
+
+            average_localization_ms,
+
+            localization_min != INT64_MAX
+                ? localization_min / 1000.0
+                : 0.0,
+
+            localization_max / 1000.0,
+
+            average_localization_pipeline_ms,
+
+            localization_fps,
+
+            average_capture_ms,
+
+            capture_min != INT64_MAX
+                ? capture_min / 1000.0
+                : 0.0,
+
+            capture_max / 1000.0,
+
             average_sobel_ms,
+
             average_threshold_ms,
+
             average_dsp_ms,
-            average_pipeline_ms,
-            successful_frames == TEST_FRAMES ? "PASS" : "PARTIAL"
+
+            average_basic_pipeline_ms,
+
+            (
+                successful_frames ==
+                    TEST_FRAMES &&
+
+                grid_success_count ==
+                    TEST_FRAMES &&
+
+                warp_success_count ==
+                    TEST_FRAMES
+            )
+                ? "PASS"
+                : "PARTIAL"
         );
+
 
         fclose(summary);
     }
 
+
+    /* ============================================================
+     * FINAL CHECK
+     * ============================================================ */
+
     if (successful_frames == 0) {
-        ESP_LOGE(TAG, "No frames were captured");
+
+        ESP_LOGE(
+            TAG,
+            "No frames were captured"
+        );
+
         return ESP_FAIL;
     }
+
+
+    ESP_LOGI(
+        TAG,
+        "Benchmark complete: %d/%d frames",
+        successful_frames,
+        TEST_FRAMES
+    );
+
+
+    ESP_LOGI(
+        TAG,
+        "Grid success: %d/%d",
+        grid_success_count,
+        successful_frames
+    );
+
+
+    ESP_LOGI(
+        TAG,
+        "Warp success: %d/%d",
+        warp_success_count,
+        successful_frames
+    );
+
 
     return ESP_OK;
 }
